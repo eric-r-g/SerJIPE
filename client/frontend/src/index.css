@@ -1,0 +1,10 @@
+body, html, p, h1{
+    margin: 0;
+    padding: 0;
+}
+
+#root{
+    height: 100vh;
+
+    overflow-y: hidden;
+}

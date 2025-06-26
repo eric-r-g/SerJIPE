@@ -1,0 +1,43 @@
+#list-devices{
+    grid-column: 2/5;
+
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 10px;
+
+    padding: 15px;
+
+    overflow-y: scroll;
+
+    background-color: wheat;
+}
+
+
+.devices-item{
+    background-color: aliceblue;
+}
+
+.devices-item > .device-header-wrapper{
+    display: flex;
+    justify-content: space-between;
+
+    padding: 5px;
+
+    background-color: antiquewhite;
+}
+.device-header-wrapper > .device-header{
+    display: inline-block;
+}
+.device-header-wrapper > .device-buttons{
+    display: inline-block;
+    align-items: end;
+
+    width: fit-content;
+}
+
+.device-info-wrapper{
+    height: 150px; /* No celular isso vou ter que aumentar isso */
+    display: grid;
+
+    padding: 5px;
+}

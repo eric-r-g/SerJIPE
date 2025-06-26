@@ -1,0 +1,7 @@
+#main-grid{
+    display: grid;
+
+    height: 100%;
+
+    grid-template-columns: repeat(4, 25%);
+}
