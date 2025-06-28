@@ -90,7 +90,7 @@ class SensorTemperatura:
                             # Verifica se é a mensagem de multicast (device_id == "multicast")
                             if (mensagem.device_id == "GATEWAY"):
                                 #Salva e informa o IP do gateway
-                                self.gateway_ip = endr[0]
+                                self.gateway_ip = mensagem.ip
                                 print(f"[{self.device_id}] Gateway encontrado: {self.gateway_ip}")
 
                                 #Prepara a resposta com informações do dispositivo
@@ -104,7 +104,7 @@ class SensorTemperatura:
 
                                 #Usa um socket diferente para resposta (evita conflito)
                                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                    response_sock.sendto(device_info.SerializeToString(), (endr[0], endr[1]))
+                                    response_sock.sendto(device_info.SerializeToString(), (self.gateway_ip, mensagem.port))
                                 
                                 print(f"[{self.device_id}] Registrado no gateway!")
 
