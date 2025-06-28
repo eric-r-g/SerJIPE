@@ -91,16 +91,18 @@ def server_cliente():
     # liga o socket
     socket_cliente.bind(('0.0.0.0', PORT_CLIENTE))
 
-    # espera o cliente se conectar
-    socket_cliente.listen(1)
-    conn, addr = socket_cliente.accept()
-    print(f"conexão realizada com {addr[0]}:{addr[1]}")
-
     try:
+        # espera o cliente se conectar
         while True:
+            socket_cliente.listen(1)
+            conn, addr = socket_cliente.accept()
+            print(f"conexão realizada com {addr[0]}:{addr[1]}")
+
+    
+        
             data = conn.recv(1024)
             if not data:
-                break
+                continue
             response = serjipe_message_pb2.Command()
             response.ParseFromString(data)
             match response.action:
