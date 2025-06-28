@@ -34,6 +34,13 @@ def server_cliente():
                 case "LISTAR":
                     if response.device_id == "GATEWAY":
                         retorno = serjipe_message_pb2.ListarDispositivos()
+                        device = retorno.devices.add()
+                        device.device_id = "TESTE"
+                        device.type = "TESTE"
+                        device.i0 = "TESTE"
+                        device.port = 1234
+                        device.status = "TESTE"
+
                         bytes = retorno.SerializeToString()
                         conn.sendall(bytes)
             
