@@ -26,7 +26,7 @@ class SensorTemperatura:
         self.tcp_port = random.randint(10000, 20000)
 
         #Configurações de multicast
-        self.multicast_group = '224.1.1.1'
+        self.multicast_group = '239.1.2.3'
         self.multicast_port = 5000
 
         #Informações do gateway (preenchidas após descoberta)
@@ -151,8 +151,10 @@ class SensorTemperatura:
                 #Processa a solicitação
                 if command.action == "DESLIGAR":
                     self.status = "OFF"
+                    print(f"[{self.device_id}] Desligado")
                 elif command.action == "LIGAR":
                     self.status = "ON"
+                    print(f"[{self.device_id}] Ligado")
                 elif command.action == "SETAR_INTERVALO":
                     try:
                         #Tenta converter o parâmetro para inteiro
