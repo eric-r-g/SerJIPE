@@ -82,26 +82,36 @@ class SensorTemperatura:
                         #Aguarda receber dados no socket multicast (buffer de 1024 bytes)
                         data, endr = s.recvfrom(1024)
 
-                        #Verifica se a mensagem é o pedido de descoberta esperado
-                        if(data == b"DISCOVERY_REQUEST"):
-                            #Salva e informa o IP do gateway
-                            self.gateway_ip = endr[0]
-                            print(f"[{self.device_id}] Gateway encontrado: {self.gateway_ip}")
+                        try:
+                            #Desserializa a mensagem como DeviceInfo
+                            mensagem = serjipe_message_pb2.DeviceInfo()
+                            mensagem.ParseFromString(data)
 
-                            #Prepara a resposta com informações do dispositivo
-                            device_info = serjipe_message_pb2.DeviceInfo(
-                                device_id=self.device_id,
-                                type=self.type,
-                                ip=self.ip,
-                                port=self.tcp_port,
-                                status=self.status
-                            )
+                            # Verifica se é a mensagem de multicast (device_id == "multicast")
+                            if (mensagem.device_id == "GATEWAY"):
+                                #Salva e informa o IP do gateway
+                                self.gateway_ip = endr[0]
+                                print(f"[{self.device_id}] Gateway encontrado: {self.gateway_ip}")
 
-                             #Usa um socket diferente para resposta (evita conflito)
-                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(device_info.SerializeToString(), (endr[0], endr[1]))
-                            
-                            print(f"[{self.device_id}] Registrado no gateway!")
+                                #Prepara a resposta com informações do dispositivo
+                                device_info = serjipe_message_pb2.DeviceInfo(
+                                    device_id=self.device_id,
+                                    type=self.type,
+                                    ip=self.ip,
+                                    port=self.tcp_port,
+                                    status=self.status
+                                )
+
+                                #Usa um socket diferente para resposta (evita conflito)
+                                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
+                                    response_sock.sendto(device_info.SerializeToString(), (endr[0], endr[1]))
+                                
+                                print(f"[{self.device_id}] Registrado no gateway!")
+
+                        except Exception as e:
+                            print(f"[{self.device_id}] Erro ao processar mensagem de descoberta: {str(e)}")
+                            continue
+
                     except socket.timeout:
                         #Timeout - continua ouvindo
                         continue
@@ -109,11 +119,11 @@ class SensorTemperatura:
                         print(f"[{self.device_id}] Erro de conexão resetada. Reiniciando socket...")
                         break  # Sai do loop secundário para recriar socket
                     except Exception as e:
-                        print(f"[{self.device_id}] Erro: {str(e)}")
+                        print(f"[{self.device_id}] Desligado")
                         break
 
             except Exception as e:
-                print(f"[{self.device_id}] Erro: {str(e)}")
+                print(f"[{self.device_id}] Desligado")
                 break
 
             finally:
