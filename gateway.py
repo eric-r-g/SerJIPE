@@ -30,9 +30,6 @@ def multicast():
     # configura o socket criado
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)  # tempo de vida
 
-    # liga o socket 
-    socket_multicast.bind(('0.0.0.0', PORT_MULTICAST))
-
     # se conecta ao grupo multicast
     mreq = socket.inet_aton(MULTICAST_GROUP) + socket.inet_aton('0.0.0.0')
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
@@ -89,14 +86,14 @@ def multicast():
 # cria um socket com o cliente
 def server_cliente():
     # cria um socket tcp
-    socker_cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    socket_cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # liga o socket
-    socker_cliente.bind(('0.0.0.0', PORT_CLIENTE))
+    socket_cliente.bind(('0.0.0.0', PORT_CLIENTE))
 
     # espera o cliente se conectar
-    socker_cliente.listen(1)
-    conn, addr = socker_cliente.accept()
+    socket_cliente.listen(1)
+    conn, addr = socket_cliente.accept()
     print(f"conexão realizada com {addr[0]}:{addr[1]}")
 
     try:
@@ -131,10 +128,12 @@ def server_cliente():
     finally:
         # encerra as conexões
         conn.close()
-        socker_cliente.close()
+        socket_cliente.close()
     # termina o processo
 
 try:
     ip_maquina = get_local_ip()
 except Exception as e:
     print(f"erro: {e}")
+
+server_cliente()
