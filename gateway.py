@@ -28,7 +28,16 @@ def server_cliente():
             data = conn.recv(1024)
             if not data:
                 break
-            # aqui realizar as respostas devidas pra cada uma das requisições
+            response = serjipe_message_pb2.Command()
+            response.ParseFromString(data)
+            match response.action:
+                case "LISTAR":
+                    if response.device_id == "GATEWAY":
+                        retorno = serjipe_message_pb2.ListarDispositivos()
+                        bytes = retorno.SerializeToString()
+                        conn.sendall(bytes)
+            
+
             conn.sendall(b"ECHO: " + data) # retornar a resposta devida (ainda falta)
     except Exception as e:
         print(f"erro: {e}")
@@ -61,7 +70,7 @@ def multicast():
     # cria a mensagem para chamar os MULTICAST
     command = serjipe_message_pb2.Command()
     # o campo parameter se tornou inutil no multicast, porém para sistemas mais avançados pode ser usado
-    command.device_id = "gateway-1"
+    command.device_id = "GATEWAY"
     command.action = "MULTICAST"
     command_bytes = command.SerializeToString()
 
@@ -89,3 +98,4 @@ def multicast():
         socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
         socket_multicast.close()
 
+server_cliente()
