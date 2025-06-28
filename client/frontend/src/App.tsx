@@ -9,7 +9,29 @@ function App() {
   return (
     <div id='main-grid'>
       <HeaderDiv/>
-      <ListDevices devices={[{device_id: 'test0'}, {device_id: 'test1'}]}/>
+      <ListDevices devices={[{
+          device_id: 'test0',
+          type: '',
+          ip: '',
+          port: 0,
+          status: '',
+          lastReading: {
+              device_id: '',
+              value: 0,
+              timestamp: ''
+          }
+      }, {
+          device_id: 'test1',
+          type: '',
+          ip: '',
+          port: 0,
+          status: '',
+          lastReading: {
+              device_id: '',
+              value: 0,
+              timestamp: ''
+          }
+      }]}/>
     </div>
   )
 }

@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import './listdevices.css';
+import type { DeviceInfo } from "../../lib/interfaces";
 
 interface ListDevicesProps{
-    devices: Array<any> // any tem que ser mudado pra device dps
+    devices: Array<DeviceInfo> // any tem que ser mudado pra device dps
 }
 
 function ListDevices(props: ListDevicesProps){
@@ -25,7 +26,21 @@ function ListDevices(props: ListDevicesProps){
                         </div>
                     </div>
                     <div className="device-info-wrapper">
-                        <p>Informações do dispositivo</p>
+                        <div><h3>Informações do dispositivo</h3>
+                            <div>
+                                <p>ID: {device.device_id}</p>
+                                <p>Tipo: {device.type}</p>
+                                <p>IP: {device.ip}</p>
+                                <p>Porta: {device.port}</p>
+                                <p>Status: {device.status}</p>
+                            </div>
+                        </div>
+                        <div><h3>Ultima leitura</h3>
+                            <div>
+                                <p>Valor: {device.lastReading.value}</p>
+                                <p>Hora: {device.lastReading.timestamp}</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )
