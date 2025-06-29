@@ -188,8 +188,12 @@ def server_cliente():
                             socket_dispositivo.connect((ip, porta))
 
                             bytes_response = response.SerializeToString()
+                            socket_dispositivo.settimeout(1.0)
                             socket_dispositivo.sendall(bytes_response)
-                            # retornar uma resposta para o cliente
+                            
+                            
+                            data = socket_dispositivo.recv(1024)
+                            conn.sendall(data)
                         except:
                             print("erro")
                         finally:
