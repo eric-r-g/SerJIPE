@@ -2,7 +2,8 @@ import socket
 import serjipe_message_pb2
 from threading import Thread
 
-devices = []
+
+devices_dict = {}
 
 MULTICAST_GROUP = '239.1.2.3'
 PORT_MULTICAST = 5000
@@ -23,7 +24,7 @@ def get_local_ip():
     except Exception as e:
         return f"Erro: {e}"
 
-def multicast():
+def multicast_envio():
     # cria um socket udp
     socket_multicast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
 
@@ -49,7 +50,11 @@ def multicast():
     # fecha socket de envio
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
     socket_multicast.close()
-    
+
+    return multicast_retorno()
+
+def multicast_retorno():
+    devices = []
     # cria socket de entrada
     socket_multicast_respostas = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     socket_multicast_respostas.bind(('0.0.0.0', PORT_MULTICAST_RESPOSTA))
@@ -57,7 +62,6 @@ def multicast():
     # vai escutar as respostas, esperando durante 3 segundos
     socket_multicast_respostas.settimeout(3)
 
-    devices.clear()
     try:
         while(True):
             # recebe os dados com os d
@@ -81,7 +85,7 @@ def multicast():
     finally:
         # fecha a socket de entrada
         socket_multicast_respostas.close()
-
+        return devices
 
 # cria um socket com o cliente
 def server_cliente():
@@ -92,27 +96,30 @@ def server_cliente():
     socket_cliente.bind(('0.0.0.0', PORT_CLIENTE))
 
     try:
-        # espera o cliente se conectar
+        socket_cliente.listen(1)
         while True:
-            socket_cliente.listen(1)
+            # espera o cliente se conectar
             conn, addr = socket_cliente.accept()
             print(f"conexão realizada com {addr[0]}:{addr[1]}")
+            try:
+                data = conn.recv(1024)
+                if not data:
+                    # evita travamento
+                    conn.close()
+                    continue
+                response = serjipe_message_pb2.Command()
+                response.ParseFromString(data)
+                match response.action:
 
-    
-        
-            data = conn.recv(1024)
-            if not data:
-                continue
-            response = serjipe_message_pb2.Command()
-            response.ParseFromString(data)
-            match response.action:
-                case "LISTAR":
-                    multicast()
-
-                    if response.device_id == "GATEWAY":
+                    case "LISTAR":
+                        devices = multicast_envio()
                         retorno = serjipe_message_pb2.ListarDispositivos()
+                        
+                        # limpa o dicionario para não acumular
+                        devices_dict.clear()
 
                         for d in devices:
+                            # ajeita a mensagem de retorno
                             device = retorno.devices.add()
                             device.device_id = d["device_id"]
                             device.type = d["type"]
@@ -120,20 +127,42 @@ def server_cliente():
                             device.port = d["port"]
                             device.status = d["status"]
 
+                            # ajeita o dicionario com os dispositivos
+                            devices_dict[d["device_id"]] = d.copy()
+
                         bytes = retorno.SerializeToString()
                         conn.sendall(bytes)
-                case _:
-                    print("comando invalido")
 
+                    case "LIGAR":
+                        socket_dispositivo = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        socket_dispositivo.timeout(3)
+                        # falta tratamento de erro
+
+                        ip = devices_dict[response.device_id]["ip"]
+                        porta = devices_dict[response.device_id]["port"]
+                        
+                        try:
+                            socket_dispositivo.connect((ip, porta))
+
+                            bytes_response = response.SerializeToString()
+                            socket_dispositivo.sendall(bytes_response)
+                            # retornar uma resposta para o cliente
+                        except:
+                            print("erro")
+                        finally:
+                            socket_dispositivo.close()
+                    case _:
+                        print("comando invalido")
+            finally:
+                conn.close()
     except Exception as e:
         print(f"erro: {e}")
     finally:
         # encerra as conexões
-        conn.close()
         socket_cliente.close()
     # termina o processo
 
-try:
+try:#
     ip_maquina = get_local_ip()
 except Exception as e:
     print(f"erro: {e}")
