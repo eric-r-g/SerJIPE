@@ -3,8 +3,9 @@ syntax = "proto3";
 message DeviceData {
     string device_id = 1;
     string status = 2;     // ex: "ON", "OFF", "ERROR"
-    repeated string value = 3;      // ex: {25.5 (temperatura)
-    string timestamp = 4;   // somente para sensoriais
+    repeated string value_name = 3;  // ex:  {temperatura, tempo de espera}
+    repeated string value = 4;      // ex: {25.5 , 5s}
+    string timestamp = 5;   // somente para sensoriais
 }
 
 message DeviceInfo {
