@@ -1,220 +1,257 @@
 import socket
-import serjipe_message_pb2
 import threading
+import struct   #Para manipulação de dados binários (usado no multicast)
+import time
+import random
+from datetime import datetime   #Obter data/hora atual
+import uuid     #Gerar id's únicos
+import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
 
+class SensorTemperatura:
+    def __init__(self): #Construtor da classe - inicializa o sensor
+        #Especificidades
+        self.temperatura_atual = 25
+        self.intervalo_envio = 15
 
-devices_dict = {}
-sensor_dict = {}
+        #Gera um ID único para o dispositivo
+        self.device_id = f"TEMP-{str(uuid.uuid4())[:8]}"
 
-MULTICAST_GROUP = '239.1.2.3'
-PORT_MULTICAST = 5000
-PORT_MULTICAST_RESPOSTA = 4444
-PORT_CLIENTE = 8000
-PORT_UDP_SENSOR = 7000
+        self.type = "sensor_temperatura"
 
-# realiza um multicast para verificar dispositivos válidos
-# adicionar uma memoria cache e talvez um processe de fazer a chamada multicast de tempos em tempos
+        self.status = "ON"
 
-def get_local_ip():
-    try:
-        # Cria um socket temporário para conectar a um servidor externo
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))  # Conecta ao DNS do Google
-        local_ip = s.getsockname()[0]
-        s.close()
-        return local_ip
-    except Exception as e:
-        return f"Erro: {e}"
+        self.ip = self.get_local_ip()
 
-def multicast_envio():
-    # cria um socket udp
-    socket_multicast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        #Escolhe uma porta TCP aleatória
+        self.tcp_port = random.randint(10000, 20000)
 
-    # configura o socket criado
-    socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)  # tempo de vida
+        #Configurações de multicast
+        self.multicast_group = '239.1.2.3'
+        self.multicast_port = 5000
 
-    # se conecta ao grupo multicast
-    mreq = socket.inet_aton(MULTICAST_GROUP) + socket.inet_aton('0.0.0.0')
-    socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        #Informações do gateway (preenchidas após descoberta)
+        self.gateway_ip = None
+        self.gateway_udp_port = 0
 
-    # cria a mensagem para chamar os MULTICAST
-    discover = serjipe_message_pb2.Discover()
-    discover.ip = ip_maquina
-    discover.port_multicast = PORT_MULTICAST_RESPOSTA
-    discover.port_udp_sensor = PORT_UDP_SENSOR
-    discover_bytes = discover.SerializeToString()
+        print(f"Sensor {self.device_id} iniciado em {self.ip}:{self.tcp_port}")
 
-    # envia as requisições para todos os dispositivos
-    socket_multicast.sendto(discover_bytes, (MULTICAST_GROUP, PORT_MULTICAST))
+    def get_local_ip(self): #Obtém o endereço local da máquina
+        #Cria um socket temporário UDP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #família (IPv4), tipo (UDP)
+        try:
+            #Tenta conectar a um servidor externo
+            s.connect(("8.8.8.8", 80))
 
-    # fecha socket de envio
-    socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
-    socket_multicast.close()
-
-    return multicast_retorno()
-
-def multicast_retorno():
-    devices = []
-    # cria socket de entrada
-    socket_multicast_respostas = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
-    socket_multicast_respostas.bind(('0.0.0.0', PORT_MULTICAST_RESPOSTA))
-
-    # vai escutar as respostas, esperando durante 3 segundos
-    socket_multicast_respostas.settimeout(3.0)
-
-    try:
-        while(True):
-            # recebe os dados com os d
-            data, addr = socket_multicast_respostas.recvfrom(1024)
-            response = serjipe_message_pb2.DeviceInfo()
-            response.ParseFromString(data)
-            d = {}
-            d["device_id"] = response.device_id
-            d["type"] = response.type
-            d["ip"] = response.ip
-            d["port"] = response.port
-            d["data"] = {
-                "device_id" : response.data.device_id,
-                "status" : response.data.status,
-                "value_name" : response.data.value_name,
-                "value" : response.data.value,
-                "timestamp" : response.data.timestamp
-            }
-
-            devices.append(d)
-
-    except socket.timeout:
-        print("tempo esgotado")
-    except Exception as e:
-        print(f"erro: {e}")
-
-    finally:
-        # fecha a socket de entrada
-        socket_multicast_respostas.close()
-        return devices
-
-
-def socket_udp_sensor():
-    socket_udp_sensor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_udp_sensor.bind(('0.0.0.0', PORT_UDP_SENSOR))
-
-    socket_udp_sensor.settimeout(1.0)
-
-    try:
-        while True:
+            #Obtém o endereço IP local usado na conexão
+            ip = s.getsockname()[0]
+        except Exception:
+            #Em caso de erro, usa o IP de loopback (local host)
+            ip = "127.0.0.1"
+        finally:
+            #Fecha o socket
+            s.close()
+        return ip
+    
+    def discovery_listener(self):   #Escuta por pedidos de descoberta do gateway
+        while True: #Loop principal para reiniciar automaticamente
             try:
-                data, addr = socket_udp_sensor.recvfrom(1024)
-                response = serjipe_message_pb2.DeviceData()
-                response.ParseFromString(data)
+                #Cria socket UDP
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-                d = {
-                    "status" : response.status,
-                    "value_name" : list(response.value_name),
-                    "value" : list(response.value),
-                    "timestamp" : response.timestamp
-                }
+                #Associa o socket a todas as interfaces de rede na porta multicast
+                s.bind(('0.0.0.0', self.multicast_port))
 
-                sensor_dict[response.device_id] = d
-            except socket.timeout:
-                continue
+                #Prepara para entrar no grupo multicast
+                #Converte o endereço IP para formato binário
+                group = socket.inet_aton(self.multicast_group)
 
-    except Exception as e:
-        print(f"Erro: {e}")
+                #Empacota o endereço do grupo e a interface
+                mreq = struct.pack('4s4s', group, socket.inet_aton('0.0.0.0'))
 
+                #Configura o socket para entrar no grupo multicast
+                s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
-# cria um socket com o cliente
-def server_cliente():
-    # cria um socket tcp
-    socket_cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                #Define timeout para evitar bloqueio permanente
+                s.settimeout(5.0) 
 
-    # liga o socket
-    socket_cliente.bind(('0.0.0.0', PORT_CLIENTE))
+                print(f"[{self.device_id}] Aguardando descoberta...")
+                
+                while True: #Loop secundário para recebimentos
+                    try:
+                        #Aguarda receber dados no socket multicast (buffer de 1024 bytes)
+                        data, endr = s.recvfrom(1024)
 
-    try:
-        socket_cliente.listen(1)
-        while True:
-            # espera o cliente se conectar
-            conn, addr = socket_cliente.accept()
-            print(f"conexão realizada com {addr[0]}:{addr[1]}")
-            try:
-                data = conn.recv(1024)
-                if not data:
-                    # evita travamento
-                    conn.close()
-                    continue
-                response = serjipe_message_pb2.Command()
-                response.ParseFromString(data)
-                match response.action:
-                    
-                    # listar todos os dispositivos
-                    case "LISTAR":
-                        devices = multicast_envio()
-                        retorno = serjipe_message_pb2.ListarDispositivos()
-                        
-                        # limpa o dicionario para não acumular
-                        devices_dict.clear()
-
-                        for d in devices:
-                            # ajeita a mensagem de retorno
-                            device = retorno.devices.add()
-                            device.device_id = d["device_id"]
-                            device.type = d["type"]
-                            device.ip = d["ip"]
-                            device.port = d["port"]
-                            device.data.device_id = d["data"]["device_id"]
-                            device.data.status = d["data"]["status"]
-                            device.data.value_name.extend(d["data"]["value_name"])
-                            device.data.value.extend(d["data"]["value"])
-                            device.data.timestamp = d["data"]["timestamp"]
-                            # ajeita o dicionario com os dispositivos
-                            devices_dict[d["device_id"]] = d.copy()
-
-                        bytes = retorno.SerializeToString()
-                        conn.sendall(bytes)
-                    
-                    # repassar um comando
-                    case _:
-                        socket_dispositivo = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        socket_dispositivo.settimeout(3.0)
-                        # falta tratamento de erro
-
-                        if response.device_id in devices_dict:
-                            ip = devices_dict[response.device_id]["ip"]
-                            porta = devices_dict[response.device_id]["port"]
-                        else:
-                            print("erro")
-                        
                         try:
-                            socket_dispositivo.connect((ip, porta))
+                            #Desserializa a mensagem
+                            mensagem = serjipe_message_pb2.Discover()
+                            mensagem.ParseFromString(data)
+                            
+                            #Salva as informações
+                            self.gateway_ip = mensagem.ip
+                            self.gateway_udp_port = mensagem.port_udp_sensor
+                            print(f"[{self.device_id}] Gateway encontrado: {self.gateway_ip}")
 
-                            bytes_response = response.SerializeToString()
-                            socket_dispositivo.settimeout(1.0)
-                            socket_dispositivo.sendall(bytes_response)
+                            #Prepara a resposta com informações do dispositivo
+                            device_info = serjipe_message_pb2.DeviceInfo(
+                                device_id = self.device_id,
+                                type = self.type,
+                                ip = self.ip,
+                                port = self.tcp_port,
+                                data = serjipe_message_pb2.DeviceData(
+                                    device_id = self.device_id,
+                                    status = self.status,
+                                    value_name = ["Temperatura atual", "Intervalo de envio"],
+                                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
+                                )
+                            )
+
+                            #Usa um socket diferente para resposta (evita conflito)
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
+                                response_sock.sendto(device_info.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
                             
-                            
-                            data = socket_dispositivo.recv(1024)
-                            conn.sendall(data)
-                        except:
-                            print("erro")
-                        finally:
-                            socket_dispositivo.close()
+                            print(f"[{self.device_id}] Registrado no gateway!")
+
+                        except Exception as e:
+                            print(f"[{self.device_id}] Erro ao processar mensagem de descoberta: {str(e)}")
+                            continue
+
+                    except socket.timeout:
+                        #Timeout - continua ouvindo
+                        continue
+                    except ConnectionResetError:
+                        print(f"[{self.device_id}] Erro de conexão resetada. Reiniciando socket...")
+                        break  # Sai do loop secundário para recriar socket
+                    except Exception as e:
+                        print(f"[{self.device_id}] Desligado")
+                        break
+
+            except Exception as e:
+                print(f"[{self.device_id}] Desligado")
+                break
+
             finally:
-                conn.close()
-    except Exception as e:
-        print(f"erro: {e}")
-    finally:
-        # encerra as conexões
-        socket_cliente.close()
-    # termina o processo
+                # Fecha o socket antes de recriar
+                try:
+                    if 's' in locals():
+                        s.close()
+                except:
+                    pass
+            
+            # Espera antes de recriar o socket
+            time.sleep(1)
 
-try:#
-    ip_maquina = get_local_ip()
-except Exception as e:
-    print(f"erro: {e}")
+    def servidor_comando_tcp(self): #Servidor para receber comandos do gateway
+        #Socket TCP
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-thread_udp_sensor = threading.Thread(
-    target=socket_udp_sensor,
-    daemon=True
-)
-thread_udp_sensor.start()
-server_cliente()
+        #Associa o socket ao IP e porta TCP do dispositivo
+        server.bind((self.ip, self.tcp_port))
+
+        # Habilita o socket para aceitar conexões
+        server.listen()
+
+        while True:
+            try:
+                #Aceita e recebe os dados da conexão
+                conn, endr = server.accept()
+                data = conn.recv(1024)  #Até 1024 bytes
+
+                #Preenche um obejto de comando com os dados
+                command = serjipe_message_pb2.Command()
+                command.ParseFromString(data)
+
+                #Verifica se é para esse dispositivo
+                if command.device_id == self.device_id:
+                    #Processa a solicitação
+                    if command.action == "DESLIGAR":
+                        self.status = "OFF"
+                        print(f"[{self.device_id}] Desligado")
+                    elif command.action == "LIGAR":
+                        self.status = "ON"
+                        print(f"[{self.device_id}] Ligado")
+                    elif command.action == "SETAR_INTERVALO":
+                        try:
+                            #Tenta converter o parâmetro para inteiro
+                            novo_intervalo = int(command.parameter)
+                            #Atualiza o intervalo de envio de dados
+                            self.intervalo_envio = novo_intervalo
+                            print(f"[{self.device_id}] Intervalo alterado para {novo_intervalo}s")
+                        except ValueError:
+                            #Trata erro se o parâmetro não for número
+                            print("Parâmetro inválido para intervalo")
+                    
+                    #Confirmação de recebimento (envio de DeviceData)
+                    device_data = serjipe_message_pb2.DeviceData(
+                        device_id = self.device_id,
+                        status = self.status,
+                        value_name = ["Temperatura atual", "Intervalo de envio"],
+                        value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
+                    )
+                    
+                    conn.send(device_data.SerializeToString())
+
+            except Exception as e:
+                print(f"Erro no servidor TCP: {str(e)}")
+
+            finally:
+                if ('conn' in locals()):
+                    #Fecha a conexão
+                    conn.close()
+
+    def send_data(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
+        while True:
+            if(self.gateway_ip and self.status == "ON"):
+                #Simula uma leitura de temperatura
+                hora = datetime.now().hour
+                if 6 <= hora < 18:
+                    temp_esperada = 28.0
+                else:
+                    temp_esperada = 22.0
+                    
+                #Ajusta gradualmente para a temperatura esperada
+                if self.temperatura_atual < temp_esperada:
+                    self.temperatura_atual += 0.1
+                elif self.temperatura_atual > temp_esperada:
+                    self.temperatura_atual -= 0.1
+                    
+                #Adiciona uma variação aleatória
+                variacao = random.uniform(-0.1, 0.1)
+                temperatura = round(self.temperatura_atual + variacao, 1)
+                
+                temperatura = max(18.0, min(temperatura, 32.0))
+
+                #Cria a mensagem de dados do sensor
+                device_data = serjipe_message_pb2.DeviceData(
+                    device_id = self.device_id,
+                    status = self.status,
+                    value_name = ["Temperatura atual", "Intervalo de envio"],
+                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
+                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                )
+
+                #Socket UDP temporário
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+                #Envia os dados para o gateway
+                s.sendto(device_data.SerializeToString(), (self.gateway_ip, self.gateway_udp_port))
+
+            time.sleep(self.intervalo_envio)
+
+    def run(self): #Inicia as funcionalidades em threads separadas
+        #Escuta por pedidos de descoberta multicast
+        threading.Thread(target=self.discovery_listener, daemon=True).start()
+
+        #Servidor TCP para comandos
+        threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
+
+        #Envio de dados
+        threading.Thread(target=self.send_data, daemon=True).start()
+
+        #Loop que mantem o programa rodando
+        while True:
+            time.sleep(1)   #Evitar que termine imediatamente
+
+if __name__ == "__main__":
+    sensor = SensorTemperatura()
+    sensor.run()
