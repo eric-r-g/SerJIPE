@@ -1,14 +1,16 @@
 import socket
 import serjipe_message_pb2
-from threading import Thread
+import threading
 
 
 devices_dict = {}
+sensor_dict = {}
 
 MULTICAST_GROUP = '239.1.2.3'
 PORT_MULTICAST = 5000
 PORT_MULTICAST_RESPOSTA = 4444
 PORT_CLIENTE = 8000
+PORT_UDP_SENSOR = 7000
 
 # realiza um multicast para verificar dispositivos válidos
 # adicionar uma memoria cache e talvez um processe de fazer a chamada multicast de tempos em tempos
@@ -36,16 +38,14 @@ def multicast_envio():
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
     # cria a mensagem para chamar os MULTICAST
-    command = serjipe_message_pb2.DeviceInfo()
-    command.device_id = "GATEWAY"
-    command.type = "GATEWAY"
-    command.ip = ip_maquina
-    command.port = PORT_MULTICAST_RESPOSTA
-    command.status = "ON"
-    command_bytes = command.SerializeToString()
+    discover = serjipe_message_pb2.Discover()
+    discover.ip = ip_maquina
+    discover.port_multicast = PORT_MULTICAST_RESPOSTA
+    discover.port_udp_sensor = PORT_UDP_SENSOR
+    discover_bytes = discover.SerializeToString()
 
     # envia as requisições para todos os dispositivos
-    socket_multicast.sendto(command_bytes, (MULTICAST_GROUP, PORT_MULTICAST))
+    socket_multicast.sendto(discover_bytes, (MULTICAST_GROUP, PORT_MULTICAST))
 
     # fecha socket de envio
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
@@ -60,7 +60,7 @@ def multicast_retorno():
     socket_multicast_respostas.bind(('0.0.0.0', PORT_MULTICAST_RESPOSTA))
 
     # vai escutar as respostas, esperando durante 3 segundos
-    socket_multicast_respostas.settimeout(3)
+    socket_multicast_respostas.settimeout(3.0)
 
     try:
         while(True):
@@ -73,7 +73,13 @@ def multicast_retorno():
             d["type"] = response.type
             d["ip"] = response.ip
             d["port"] = response.port
-            d["status"] = response.status
+            d["data"] = {
+                "device_id" : response.data.device_id,
+                "status" : response.data.status,
+                "value_name" : response.data.value_name,
+                "value" : response.data.value,
+                "timestamp" : response.data.timestamp
+            }
 
             devices.append(d)
 
@@ -86,6 +92,35 @@ def multicast_retorno():
         # fecha a socket de entrada
         socket_multicast_respostas.close()
         return devices
+
+
+def socket_udp_sensor():
+    socket_udp_sensor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    socket_udp_sensor.bind(('0.0.0.0', PORT_UDP_SENSOR))
+
+    socket_udp_sensor.settimeout(1.0)
+
+    try:
+        while True:
+            try:
+                data, addr = socket_udp_sensor.recvfrom(1024)
+                response = serjipe_message_pb2.DeviceData()
+                response.ParseFromString(data)
+
+                d = {
+                    "status" : response.status,
+                    "value_name" : list(response.value_name),
+                    "value" : list(response.value),
+                    "timestamp" : response.timestamp
+                }
+
+                sensor_dict[response.device_id] = d
+            except socket.timeout:
+                continue
+
+    except Exception as e:
+        print(f"Erro: {e}")
+
 
 # cria um socket com o cliente
 def server_cliente():
@@ -110,7 +145,8 @@ def server_cliente():
                 response = serjipe_message_pb2.Command()
                 response.ParseFromString(data)
                 match response.action:
-
+                    
+                    # listar todos os dispositivos
                     case "LISTAR":
                         devices = multicast_envio()
                         retorno = serjipe_message_pb2.ListarDispositivos()
@@ -125,21 +161,28 @@ def server_cliente():
                             device.type = d["type"]
                             device.ip = d["ip"]
                             device.port = d["port"]
-                            device.status = d["status"]
-
+                            device.data.device_id = d["data"]["device_id"]
+                            device.data.status = d["data"]["status"]
+                            device.data.value_name.extend(d["data"]["value_name"])
+                            device.data.value.extend(d["data"]["value"])
+                            device.data.timestamp = d["data"]["timestamp"]
                             # ajeita o dicionario com os dispositivos
                             devices_dict[d["device_id"]] = d.copy()
 
                         bytes = retorno.SerializeToString()
                         conn.sendall(bytes)
-
-                    case "LIGAR":
+                    
+                    # repassar um comando
+                    case _:
                         socket_dispositivo = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        socket_dispositivo.timeout(3)
+                        socket_dispositivo.settimeout(3.0)
                         # falta tratamento de erro
 
-                        ip = devices_dict[response.device_id]["ip"]
-                        porta = devices_dict[response.device_id]["port"]
+                        if response.device_id in devices_dict:
+                            ip = devices_dict[response.device_id]["ip"]
+                            porta = devices_dict[response.device_id]["port"]
+                        else:
+                            print("erro")
                         
                         try:
                             socket_dispositivo.connect((ip, porta))
@@ -151,8 +194,6 @@ def server_cliente():
                             print("erro")
                         finally:
                             socket_dispositivo.close()
-                    case _:
-                        print("comando invalido")
             finally:
                 conn.close()
     except Exception as e:
@@ -167,4 +208,9 @@ try:#
 except Exception as e:
     print(f"erro: {e}")
 
+thread_udp_sensor = threading.Thread(
+    target=socket_udp_sensor,
+    daemon=True
+)
+thread_udp_sensor.start()
 server_cliente()
