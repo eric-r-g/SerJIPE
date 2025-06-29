@@ -20,36 +20,6 @@ app.get('/api/dispositivos', (req, res) =>{
     .catch((err) => res.status(500).send(err.message));
 })
 
-// Pegar info de um dispositivo
-app.get('/api/dispositivos/:id', (req, res) =>{
-    let device_id = req.params.id;
-
-    const comando = new messages.Command();
-    comando.setDeviceId(device_id); comando.setAction('?'); comando.setParameter('');
-
-    sendTCPData(gatewayPort, comando.serializeBinary())
-    .then((response) =>{
-        let device_info = messages.DeviceInfo.deserializeBinary(response);
-        res.send(JSON.stringify(device_info.toObject()));
-    })
-    .catch((err) => res.status(500).send(err.message));
-})
-
-// Pegar informação sensorial de um dispositivo
-app.get('/api/sensordata/:id', (req, res) =>{
-    let device_id = req.params.id;
-
-    const comando = new messages.Command();
-    comando.setDeviceId(device_id); comando.setAction('?'); comando.setParameter('');
-
-    sendTCPData(gatewayPort, comando.serializeBinary())
-    .then((response) =>{
-        let sensor = messages.SensorData.deserializeBinary(response);
-        res.send(JSON.stringify(sensor.toObject()));
-    })
-    .catch((err) => res.status(500).send(err.message));
-})
-
 // Enviar comando qualquer
     /*
         requisição:
@@ -67,8 +37,8 @@ app.post('/api/comando', (req, res) =>{
 
     sendTCPData(gatewayPort, comando.serializeBinary())
     .then((response) =>{
-        let device_info = messages.DeviceInfo.deserializeBinary(response);
-        res.send(JSON.stringify(device_info.toObject()));
+        let device_data = messages.DeviceData.deserializeBinary(response);
+        res.send(JSON.stringify(device_data.toObject()));
     })
     .catch((err) => res.status(500).send(err.message));
 })

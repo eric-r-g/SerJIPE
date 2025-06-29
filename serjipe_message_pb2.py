@@ -24,19 +24,21 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15serjipe_message.proto\"W\n\nDeviceInfo\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0c\n\x04type\x18\x02 \x01(\t\x12\n\n\x02ip\x18\x03 \x01(\t\x12\x0c\n\x04port\x18\x04 \x01(\x05\x12\x0e\n\x06status\x18\x05 \x01(\t\"A\n\nSensorData\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x02\x12\x11\n\ttimestamp\x18\x03 \x01(\t\"?\n\x07\x43ommand\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x11\n\tparameter\x18\x03 \x01(\t\"2\n\x12ListarDispositivos\x12\x1c\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x0b.DeviceInfob\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15serjipe_message.proto\"e\n\nDeviceData\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0e\n\x06status\x18\x02 \x01(\t\x12\x12\n\nvalue_name\x18\x03 \x03(\t\x12\r\n\x05value\x18\x04 \x03(\t\x12\x11\n\ttimestamp\x18\x05 \x01(\t\"b\n\nDeviceInfo\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0c\n\x04type\x18\x02 \x01(\t\x12\n\n\x02ip\x18\x03 \x01(\t\x12\x0c\n\x04port\x18\x04 \x01(\x05\x12\x19\n\x04\x64\x61ta\x18\x05 \x01(\x0b\x32\x0b.DeviceData\"?\n\x07\x43ommand\x12\x11\n\tdevice_id\x18\x01 \x01(\t\x12\x0e\n\x06\x61\x63tion\x18\x02 \x01(\t\x12\x11\n\tparameter\x18\x03 \x01(\t\"G\n\x08\x44iscover\x12\n\n\x02ip\x18\x01 \x01(\t\x12\x16\n\x0eport_multicast\x18\x02 \x01(\x05\x12\x17\n\x0fport_udp_sensor\x18\x03 \x01(\x05\"2\n\x12ListarDispositivos\x12\x1c\n\x07\x64\x65vices\x18\x01 \x03(\x0b\x32\x0b.DeviceInfob\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'serjipe_message_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_DEVICEINFO']._serialized_start=25
-  _globals['_DEVICEINFO']._serialized_end=112
-  _globals['_SENSORDATA']._serialized_start=114
-  _globals['_SENSORDATA']._serialized_end=179
-  _globals['_COMMAND']._serialized_start=181
-  _globals['_COMMAND']._serialized_end=244
-  _globals['_LISTARDISPOSITIVOS']._serialized_start=246
-  _globals['_LISTARDISPOSITIVOS']._serialized_end=296
+  _globals['_DEVICEDATA']._serialized_start=25
+  _globals['_DEVICEDATA']._serialized_end=126
+  _globals['_DEVICEINFO']._serialized_start=128
+  _globals['_DEVICEINFO']._serialized_end=226
+  _globals['_COMMAND']._serialized_start=228
+  _globals['_COMMAND']._serialized_end=291
+  _globals['_DISCOVER']._serialized_start=293
+  _globals['_DISCOVER']._serialized_end=364
+  _globals['_LISTARDISPOSITIVOS']._serialized_start=366
+  _globals['_LISTARDISPOSITIVOS']._serialized_end=416
 # @@protoc_insertion_point(module_scope)
