@@ -1,17 +1,18 @@
 syntax = "proto3";
 
+message DeviceData {
+    string device_id = 1;
+    string status = 2;     // ex: "ON", "OFF", "ERROR"
+    repeated string value = 3;      // ex: {25.5 (temperatura)
+    string timestamp = 4;   // somente para sensoriais
+}
+
 message DeviceInfo {
     string device_id = 1;
     string type = 2;      // "camera", "streetlight", etc.
     string ip = 3;
     int32 port = 4;
-    string status = 5;    // "ON", "OFF", "ERROR"
-}
-
-message SensorData {
-    string device_id = 1;
-    float value = 2;      // ex: 25.5 (temperatura)
-    string timestamp = 3;
+    DeviceData data = 5;
 }
 
 message Command {
@@ -21,9 +22,9 @@ message Command {
 }
 
 message Discover {
-    string ip = 1;       // ip do gateway
-    int32 port_multicast = 2; // porta de resposta para o multicast
-    int32 port_udp_sensor = 3; // porta de envio dos dados sensoriais
+    string ip = 1;
+    int32 port_multicast = 2;
+    int32 port_udp_sensor = 3;
 }
 
 message ListarDispositivos {
