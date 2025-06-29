@@ -20,6 +20,12 @@ message Command {
     string parameter = 3; // "1920x1080", "15" (segundos)
 }
 
+message Discover {
+    string ip = 1;       // ip do gateway
+    int32 port_multicast = 2; // porta de resposta para o multicast
+    int32 port_udp_sensor = 3; // porta de envio dos dados sensoriais
+}
+
 message ListarDispositivos {
     repeated DeviceInfo devices = 1;
 }
