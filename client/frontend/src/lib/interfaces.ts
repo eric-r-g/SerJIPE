@@ -4,12 +4,14 @@ export interface DeviceInfo{
     ip: string,
     port: number,
     status: string,
-    lastReading: SensorData
+    lastReading: DeviceData
 }
 
-export interface SensorData{
+export interface DeviceData{
     device_id: string,
-    value: number,
+    status: string,
+    value_name: Array<string>,
+    value: Array<string>,
     timestamp: string
 }
 

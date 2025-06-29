@@ -12,12 +12,16 @@ app.get('/api/dispositivos', (req, res) =>{
     const comando = new messages.Command();
     comando.setDeviceId('GATEWAY'); comando.setAction('LISTAR'); comando.setParameter('');
 
-    sendTCPData(gatewayPort, comando.serializeBinary())
-    .then((response) =>{
-        let dispositivos = messages.ListarDispositivos.deserializeBinary(response);
-        res.send(JSON.stringify(dispositivos.toObject()));
-    })
-    .catch((err) => res.status(500).send(err.message));
+    try{
+        sendTCPData(gatewayPort, comando.serializeBinary())
+        .then((response) =>{
+            let dispositivos = messages.ListarDispositivos.deserializeBinary(response);
+            res.send(JSON.stringify(dispositivos.toObject()));
+        })
+        .catch((err) => res.status(500).send(err.message));
+    }catch(e){
+        res.status(500).send(err.message);
+    }
 })
 
 // Enviar comando qualquer
@@ -35,12 +39,16 @@ app.post('/api/comando', (req, res) =>{
     const data = req.body.data;
     comando.setDeviceId(data.device_id); comando.setAction(data.action); comando.setParameter(data.parameter);
 
-    sendTCPData(gatewayPort, comando.serializeBinary())
-    .then((response) =>{
-        let device_data = messages.DeviceData.deserializeBinary(response);
-        res.send(JSON.stringify(device_data.toObject()));
-    })
-    .catch((err) => res.status(500).send(err.message));
+    try{
+        sendTCPData(gatewayPort, comando.serializeBinary())
+        .then((response) =>{
+            let device_data = messages.DeviceData.deserializeBinary(response);
+            res.send(JSON.stringify(device_data.toObject()));
+        })
+        .catch((err) => res.status(500).send(err.message));
+    }catch(e){
+        res.status(500).send(err.message);
+    }
 })
 
 export default app;

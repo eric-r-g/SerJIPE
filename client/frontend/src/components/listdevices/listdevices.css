@@ -48,7 +48,12 @@
 .device-info-wrapper > div{
     height: 150px;
 }
+.device-info-wrapper > div > h3{
+    margin: 0;
+}
 .device-info-wrapper > div > div{
     display: flex;
     flex-flow: column wrap;
+
+    background-color: crimson;
 }

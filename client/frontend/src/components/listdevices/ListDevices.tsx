@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import './listdevices.css';
 import type { DeviceInfo } from "../../lib/interfaces";
+import SendCommand from "./sendcommand/SendCommand";
 
 interface ListDevicesProps{
     devices: Array<DeviceInfo> // any tem que ser mudado pra device dps
@@ -40,6 +41,9 @@ function ListDevices(props: ListDevicesProps){
                                 <p>Valor: {device.lastReading.value}</p>
                                 <p>Hora: {device.lastReading.timestamp}</p>
                             </div>
+                        </div>
+                        <div><h3>Enviar comando</h3>
+                            <SendCommand device={device}/>
                         </div>
                     </div>
                 </div>
