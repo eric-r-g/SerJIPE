@@ -1,9 +1,10 @@
 import socket
 import serjipe_message_pb2
 import threading
-
+import time
 
 devices_dict = {}
+devices = []
 sensor_dict = {}
 
 MULTICAST_GROUP = '239.1.2.3'
@@ -50,11 +51,10 @@ def multicast_envio():
     # fecha socket de envio
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
     socket_multicast.close()
+    multicast_retorno()
 
-    return multicast_retorno()
 
 def multicast_retorno():
-    devices = []
     # cria socket de entrada
     socket_multicast_respostas = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     socket_multicast_respostas.bind(('0.0.0.0', PORT_MULTICAST_RESPOSTA))
@@ -64,16 +64,15 @@ def multicast_retorno():
 
     try:
         while(True):
-            # recebe os dados com os d
             data, addr = socket_multicast_respostas.recvfrom(1024)
             response = serjipe_message_pb2.DeviceInfo()
             response.ParseFromString(data)
-            d = {}
-            d["device_id"] = response.device_id
-            d["type"] = response.type
-            d["ip"] = response.ip
-            d["port"] = response.port
-            d["data"] = {
+            dispositivo = {}
+            dispositivo["device_id"] = response.device_id
+            dispositivo["type"] = response.type
+            dispositivo["ip"] = response.ip
+            dispositivo["port"] = response.port
+            dispositivo["data"] = {
                 "device_id" : response.data.device_id,
                 "status" : response.data.status,
                 "value_name" : response.data.value_name,
@@ -81,7 +80,10 @@ def multicast_retorno():
                 "timestamp" : response.data.timestamp
             }
 
-            devices.append(d)
+            devices.append(dispositivo)
+
+            devices_dict[response.device_id]["ip"] = response.ip
+            devices_dict[response.device_id]["port"] = response.port
 
     except socket.timeout:
         print("tempo esgotado")
@@ -91,7 +93,19 @@ def multicast_retorno():
     finally:
         # fecha a socket de entrada
         socket_multicast_respostas.close()
-        return devices
+
+# cria a função que vai fazer o multicast periodicamente
+def multicast_periodico():
+    while True:
+        try:
+            multicast_envio()
+            time.sleep(30.0)   # espera de 30 segundos antes do proximo multicast
+        except:
+            print("erro")      # falta um tratamento melhor
+
+
+
+
 
 
 def socket_udp_sensor():
@@ -120,6 +134,8 @@ def socket_udp_sensor():
 
     except Exception as e:
         print(f"Erro: {e}")
+    finally:
+        socket_udp_sensor.close()
 
 
 # cria um socket com o cliente
@@ -142,35 +158,46 @@ def server_cliente():
                     # evita travamento
                     conn.close()
                     continue
-                response = serjipe_message_pb2.Command()
-                response.ParseFromString(data)
+                envelope_entrada = serjipe_message_pb2.Envelope()
+                envelope_entrada.ParseFromString(data)
+
+                if envelope_entrada.HasField("command"):
+                    response = envelope_entrada.command
+                else:
+                    # tratamento melhor
+                    print("erro de comando invalido")
                 match response.action:
                     
                     # listar todos os dispositivos
                     case "LISTAR":
-                        devices = multicast_envio()
-                        retorno = serjipe_message_pb2.ListarDispositivos()
-                        
-                        # limpa o dicionario para não acumular
-                        devices_dict.clear()
+                        envelope = serjipe_message_pb2.Envelope()
+                        try:
+                            retorno = serjipe_message_pb2.ListarDispositivos()
 
-                        for d in devices:
-                            # ajeita a mensagem de retorno
-                            device = retorno.devices.add()
-                            device.device_id = d["device_id"]
-                            device.type = d["type"]
-                            device.ip = d["ip"]
-                            device.port = d["port"]
-                            device.data.device_id = d["data"]["device_id"]
-                            device.data.status = d["data"]["status"]
-                            device.data.value_name.extend(d["data"]["value_name"])
-                            device.data.value.extend(d["data"]["value"])
-                            device.data.timestamp = d["data"]["timestamp"]
-                            # ajeita o dicionario com os dispositivos
-                            devices_dict[d["device_id"]] = d.copy()
 
-                        bytes = retorno.SerializeToString()
-                        conn.sendall(bytes)
+                            for d in devices:
+                                # ajeita a mensagem de retorno
+                                device = retorno.devices.add()
+                                device.device_id = d["device_id"]
+                                device.type = d["type"]
+                                device.ip = d["ip"]
+                                device.port = d["port"]
+                                device.data.device_id = d["data"]["device_id"]
+                                device.data.status = d["data"]["status"]
+                                device.data.value_name.extend(d["data"]["value_name"])
+                                device.data.value.extend(d["data"]["value"])
+                                device.data.timestamp = d["data"]["timestamp"]
+                                # ajeita o dicionario com os dispositivos
+
+                            retorno.amount = str(len(devices))
+
+                            
+                            envelope.listar_dispositivos.CopyFrom(retorno)
+                            envelope.erro = "SUCESSO"
+                        except:
+                            envelope.erro = "FALHA"
+                        bytes_envelope = envelope.SerializeToString()
+                        conn.sendall(bytes_envelope)
                     
                     # repassar um comando
                     case _:
@@ -212,9 +239,17 @@ try:#
 except Exception as e:
     print(f"erro: {e}")
 
-thread_udp_sensor = threading.Thread(
+Thread_udp_sensor = threading.Thread(
     target=socket_udp_sensor,
     daemon=True
 )
-thread_udp_sensor.start()
+
+
+Thread_multicast = threading.Thread(
+    target=multicast_periodico, 
+    daemon=True
+)
+
+Thread_udp_sensor.start()
+Thread_multicast.start()
 server_cliente()
