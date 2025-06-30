@@ -43,10 +43,16 @@ def multicast_envio():
     discover.ip = ip_maquina
     discover.port_multicast = PORT_MULTICAST_RESPOSTA
     discover.port_udp_sensor = PORT_UDP_SENSOR
-    discover_bytes = discover.SerializeToString()
+
+    # envelopar a mensagem
+    envelope = serjipe_message_pb2.Envelope()
+    envelope.discover.CopyFrom(discover)
+    envelope.erro = "sucesso"
+
+    bytes_envelope = envelope.SerializeToString()
 
     # envia as requisições para todos os dispositivos
-    socket_multicast.sendto(discover_bytes, (MULTICAST_GROUP, PORT_MULTICAST))
+    socket_multicast.sendto(bytes_envelope, (MULTICAST_GROUP, PORT_MULTICAST))
 
     # fecha socket de envio
     socket_multicast.setsockopt(socket.IPPROTO_IP, socket.IP_DROP_MEMBERSHIP, mreq)
@@ -55,6 +61,7 @@ def multicast_envio():
 
 
 def multicast_retorno():
+    devices.clear() 
     # cria socket de entrada
     socket_multicast_respostas = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     socket_multicast_respostas.bind(('0.0.0.0', PORT_MULTICAST_RESPOSTA))
@@ -82,6 +89,7 @@ def multicast_retorno():
 
             devices.append(dispositivo)
 
+            devices_dict[response.device_id] = {}
             devices_dict[response.device_id]["ip"] = response.ip
             devices_dict[response.device_id]["port"] = response.port
 
