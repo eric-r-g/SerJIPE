@@ -72,8 +72,12 @@ def multicast_retorno():
     try:
         while(True):
             data, addr = socket_multicast_respostas.recvfrom(1024)
-            response = serjipe_message_pb2.DeviceInfo()
-            response.ParseFromString(data)
+            envelope_entrada = serjipe_message_pb2.DeviceInfo()
+            envelope_entrada.ParseFromString(data)
+            
+            if envelope_entrada.HasField("device_info"):
+                response = envelope_entrada.device_info
+
             dispositivo = {}
             dispositivo["device_id"] = response.device_id
             dispositivo["type"] = response.type
