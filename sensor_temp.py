@@ -84,8 +84,15 @@ class SensorTemperatura:
 
                         try:
                             #Desserializa a mensagem
-                            mensagem = serjipe_message_pb2.Discover()
-                            mensagem.ParseFromString(data)
+                            envelope = serjipe_message_pb2.Envelope()
+                            envelope.ParseFromString(data)
+
+                            if envelope.HasField("discover"):
+                                mensagem = serjipe_message_pb2.Discover()
+                                mensagem.CopyFrom(envelope.discover)
+                            else:
+                                # tratamento melhor
+                                print("erro de comando invalido")
                             
                             #Salva as informações
                             self.gateway_ip = mensagem.ip
@@ -106,15 +113,22 @@ class SensorTemperatura:
                                 )
                             )
 
-                            #Usa um socket diferente para resposta (evita conflito)
-                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(device_info.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
+                            envelopeEnvio = serjipe_message_pb2.Envelope()
+                            envelopeEnvio.device_info.CopyFrom(device_info)
+                            envelopeEnvio.erro = 'SUCESSO'
                             
-                            print(f"[{self.device_id}] Registrado no gateway!")
 
                         except Exception as e:
                             print(f"[{self.device_id}] Erro ao processar mensagem de descoberta: {str(e)}")
+
+                            envelopeEnvio.erro = "FALHA"
+                        finally:
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
+                                response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
+                                
+                            print(f"[{self.device_id}] Registrado no gateway!")
                             continue
+                        
 
                     except socket.timeout:
                         #Timeout - continua ouvindo
@@ -157,9 +171,17 @@ class SensorTemperatura:
                 conn, endr = server.accept()
                 data = conn.recv(1024)  #Até 1024 bytes
 
-                #Preenche um obejto de comando com os dados
-                command = serjipe_message_pb2.Command()
-                command.ParseFromString(data)
+                envelope = serjipe_message_pb2.Envelope()
+                envelope.ParseFromString(data)
+
+                envelopeEnvio = serjipe_message_pb2.Envelope()
+                envelopeEnvio.erro = 'SUCESSO'
+
+                if envelope.HasField("command"):
+                    command = envelope.command
+                else:
+                    # tratamento melhor
+                    raise Exception("erro de comando invalido")
 
                 #Verifica se é para esse dispositivo
                 if command.device_id == self.device_id:
@@ -179,6 +201,7 @@ class SensorTemperatura:
                             print(f"[{self.device_id}] Intervalo alterado para {novo_intervalo}s")
                         except ValueError:
                             #Trata erro se o parâmetro não for número
+                            envelopeEnvio.erro = 'FALHA'
                             print("Parâmetro inválido para intervalo")
                     
                     #Confirmação de recebimento (envio de DeviceData)
@@ -188,8 +211,10 @@ class SensorTemperatura:
                         value_name = ["Temperatura atual", "Intervalo de envio"],
                         value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
                     )
+
+                    envelopeEnvio.device_data.CopyFrom(device_data)
                     
-                    conn.send(device_data.SerializeToString())
+                    conn.send(envelopeEnvio.SerializeToString())
 
             except Exception as e:
                 print(f"Erro no servidor TCP: {str(e)}")
@@ -233,8 +258,11 @@ class SensorTemperatura:
                 #Socket UDP temporário
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+                envelope = serjipe_message_pb2.Envelope()
+                envelope.device_data.CopyFrom(device_data)
+
                 #Envia os dados para o gateway
-                s.sendto(device_data.SerializeToString(), (self.gateway_ip, self.gateway_udp_port))
+                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.gateway_udp_port))
 
             time.sleep(self.intervalo_envio)
 

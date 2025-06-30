@@ -55,10 +55,9 @@ function App() {
                     <img src={logo} alt="Logo SerJIPE" />
                 </div>
             </header>
-            <div id='controls'>
-                <button onClick={requestDevicesList}>Atualizar dispositivos</button>
+            <div id='warning'>
+                <p>{warning}</p>
             </div>
-            <p>{warning}</p>
         </div>
         <ListDevices devices={devices} updateDevice={updateDevice} updateWarning={updateWarning}/>
     </div>

@@ -12,6 +12,24 @@
 
     background-color: whitesmoke;
 }
+#warning{
+    height: 20%;
+
+    display: flex;
+    align-items: center;
+
+    padding: 5px;
+
+    text-align: center;
+
+    background-color: aqua;
+}
+#warning > p{
+    z-index: 10;
+    margin: auto;
+
+    font-size: 1.2em;
+}
 
 #header{
     background-color: bisque;
