@@ -5,7 +5,6 @@ import time
 
 devices_dict = {}
 devices = []
-sensor_dict = {}
 
 MULTICAST_GROUP = '239.1.2.3'      # grupo multicast para o discover
 PORT_MULTICAST = 5000              # Porta propria para o Multicast
@@ -97,7 +96,8 @@ def multicast_retorno():
         return
     
     # limpa os devices que já havia antes
-    devices.clear() 
+    with devices_lock:
+        devices.clear() 
 
     try:
         while(True):
@@ -110,6 +110,9 @@ def multicast_retorno():
                     response = envelope_entrada.device_info
                 else:
                     raise ValueError("Ausencia de campo")
+            except socket.timeout:
+                print("tempo de recebimento esgotado")
+                break
             except Exception as e:
                 print(f"Dados corrompidos ou errados: {e}")
                 continue
@@ -127,18 +130,16 @@ def multicast_retorno():
                     "value" : response.data.value,
                     "timestamp" : response.data.timestamp
                 }
+                
+                with devices_lock:
+                    devices.append(dispositivo)
 
-                devices.append(dispositivo)
-
-                devices_dict[response.device_id] = {}
-                devices_dict[response.device_id]["ip"] = response.ip
-                devices_dict[response.device_id]["port"] = response.port
+                with devices_dict_lock:
+                    devices_dict[response.device_id] = {}
+                    devices_dict[response.device_id]["ip"] = response.ip
+                    devices_dict[response.device_id]["port"] = response.port
             except Exception as e:
                 print(f"Falha ao processar os dados: {e}")
-
-    except socket.timeout:
-        print("tempo de recebimento esgotado")
-
     finally:
         # fecha a socket de entrada
         socket_multicast_respostas.close()
@@ -190,7 +191,9 @@ def socket_udp_sensor():
                 "timestamp" : response.timestamp
             }
 
-            sensor_dict[response.device_id] = d
+            if response.device_id in devices_dict:
+                with devices_dict_lock:
+                    devices_dict[response.device_id]["data"] = d.copy()
         except socket.timeout:
             continue
         except Exception as e:
@@ -207,24 +210,25 @@ def listar_clientes():
     try:
         retorno = serjipe_message_pb2.ListarDispositivos()
 
-        for d in devices:
-            # ajeita a mensagem de retorno
-            try:
-                device = retorno.devices.add()
-                device.device_id = d["device_id"]
-                device.type = d["type"]
-                device.ip = d["ip"]
-                device.port = d["port"]
-                device.data.device_id = d["data"]["device_id"]
-                device.data.status = d["data"]["status"]
-                device.data.value_name.extend(d["data"]["value_name"])
-                device.data.value.extend(d["data"]["value"])
-                device.data.timestamp = d["data"]["timestamp"]
-            except Exception as e:
-                print(f"Falha na criação de um dispositivo: {e}")
-                continue
+        with devices_lock:
+            for d in devices:
+                # ajeita a mensagem de retorno
+                try:
+                    device = retorno.devices.add()
+                    device.device_id = d["device_id"]
+                    device.type = d["type"]
+                    device.ip = d["ip"]
+                    device.port = d["port"]
+                    device.data.device_id = d["data"]["device_id"]
+                    device.data.status = d["data"]["status"]
+                    device.data.value_name.extend(d["data"]["value_name"])
+                    device.data.value.extend(d["data"]["value"])
+                    device.data.timestamp = d["data"]["timestamp"]
+                except Exception as e:
+                    print(f"Falha na criação de um dispositivo: {e}")
+                    continue
 
-        retorno.amount = str(len(devices))
+            retorno.amount = str(len(devices))
 
                     
         envelope_retorno.listar_dispositivos.CopyFrom(retorno)
@@ -248,8 +252,9 @@ def handler_comando(response, envelope_entrada):
         envelope_retorno.erro = f"Falha na criação do socket de repassagem: {e}"
 
     if response.device_id in devices_dict:
-        ip = devices_dict[response.device_id]["ip"]
-        porta = devices_dict[response.device_id]["port"]
+        with devices_dict_lock:
+            ip = devices_dict[response.device_id]["ip"]
+            porta = devices_dict[response.device_id]["port"]
     else:
         print("falha: Dispositivo inexistente")
         envelope_retorno.erro = "FALHA: dispositivo inexistente"
@@ -347,6 +352,9 @@ Thread_multicast = threading.Thread(
     daemon=True
 )
 
+devices_lock = threading.Lock()
+devices_dict_lock = threading.Lock()
+multicast_envio()
 Thread_udp_sensor.start()
 Thread_multicast.start()
 server_cliente()
