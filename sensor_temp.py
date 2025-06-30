@@ -8,34 +8,34 @@ import uuid     #Gerar id's únicos
 import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
 
 class SensorTemperatura:
-    def __init__(self): #Construtor da classe - inicializa o sensor
+    def __init__(self): #Inicialização do dispositivo
         #Especificidades
         self.temperatura_atual = 25
         self.intervalo_envio = 15
 
         #Gera um ID único para o dispositivo
-        self.device_id = f"TEMP-{str(uuid.uuid4())[:8]}"
+        self.id_disp = f"TEMP-{str(uuid.uuid4())[:8]}"
 
-        self.type = "sensor_temperatura"
+        self.tipo = "sensor_temperatura"
 
         self.status = "ON"
 
-        self.ip = self.get_local_ip()
+        self.ip = self.obter_ip_local()
 
         #Escolhe uma porta TCP aleatória
-        self.tcp_port = random.randint(10000, 20000)
+        self.porta_tcp = random.randint(10000, 20000)
 
         #Configurações de multicast
-        self.multicast_group = '239.1.2.3'
+        self.grupo_multicast = '239.1.2.3'
         self.multicast_port = 5000
 
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
-        self.gateway_udp_port = 0
+        self.porta_udp_gateway = 0
 
-        print(f"Sensor {self.device_id} iniciado em {self.ip}:{self.tcp_port}")
+        print(f"Sensor {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
-    def get_local_ip(self): #Obtém o endereço local da máquina
+    def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #família (IPv4), tipo (UDP)
         try:
@@ -52,7 +52,7 @@ class SensorTemperatura:
             s.close()
         return ip
     
-    def discovery_listener(self):   #Escuta por pedidos de descoberta do gateway
+    def descoberta_multicast(self):   #Escuta por pedidos de descoberta do gateway
         while True: #Loop principal para reiniciar automaticamente
             try:
                 #Cria socket UDP
@@ -64,10 +64,10 @@ class SensorTemperatura:
 
                 #Prepara para entrar no grupo multicast
                 #Converte o endereço IP para formato binário
-                group = socket.inet_aton(self.multicast_group)
+                grupo = socket.inet_aton(self.grupo_multicast)
 
                 #Empacota o endereço do grupo e a interface
-                mreq = struct.pack('4s4s', group, socket.inet_aton('0.0.0.0'))
+                mreq = struct.pack('4s4s', grupo, socket.inet_aton('0.0.0.0'))
 
                 #Configura o socket para entrar no grupo multicast
                 s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
@@ -75,7 +75,7 @@ class SensorTemperatura:
                 #Define timeout para evitar bloqueio permanente
                 s.settimeout(5.0) 
 
-                print(f"[{self.device_id}] Aguardando descoberta...")
+                print(f"[{self.id_disp}] Aguardando descoberta...")
                 
                 while True: #Loop secundário para recebimentos
                     try:
@@ -91,42 +91,42 @@ class SensorTemperatura:
                                 mensagem = serjipe_message_pb2.Discover()
                                 mensagem.CopyFrom(envelope.discover)
                             else:
-                                # tratamento melhor
+                                #Tratamento
                                 print("erro de comando invalido")
                             
                             #Salva as informações
                             self.gateway_ip = mensagem.ip
-                            self.gateway_udp_port = mensagem.port_udp_sensor
-                            print(f"[{self.device_id}] Gateway encontrado: {self.gateway_ip}")
+                            self.porta_udp_gateway = mensagem.port_udp_sensor
+                            print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
 
                             #Prepara a resposta com informações do dispositivo
                             device_info = serjipe_message_pb2.DeviceInfo(
-                                device_id = self.device_id,
-                                type = self.type,
+                                device_id = self.id_disp,
+                                type = self.tipo,
                                 ip = self.ip,
-                                port = self.tcp_port,
+                                port = self.porta_tcp,
                                 data = serjipe_message_pb2.DeviceData(
-                                    device_id = self.device_id,
+                                    device_id = self.id_disp,
                                     status = self.status,
-                                    value_name = ["Temperatura atual", "Intervalo de envio"],
+                                    value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
                                     value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
                                 )
                             )
-
+                            #Cria o envelope de envio
                             envelopeEnvio = serjipe_message_pb2.Envelope()
                             envelopeEnvio.device_info.CopyFrom(device_info)
                             envelopeEnvio.erro = 'SUCESSO'
                             
 
                         except Exception as e:
-                            print(f"[{self.device_id}] Erro ao processar mensagem de descoberta: {str(e)}")
-
+                            print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
+                            envelopeEnvio = serjipe_message_pb2.Envelope()
                             envelopeEnvio.erro = "FALHA"
                         finally:
                             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
                                 response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
                                 
-                            print(f"[{self.device_id}] Registrado no gateway!")
+                            print(f"[{self.id_disp}] Registrado no gateway!")
                             continue
                         
 
@@ -134,14 +134,14 @@ class SensorTemperatura:
                         #Timeout - continua ouvindo
                         continue
                     except ConnectionResetError:
-                        print(f"[{self.device_id}] Erro de conexão resetada. Reiniciando socket...")
+                        print(f"[{self.id_disp}] Erro de conexão resetada. Reiniciando socket...")
                         break  # Sai do loop secundário para recriar socket
                     except Exception as e:
-                        print(f"[{self.device_id}] Desligado")
+                        print(f"[{self.id_disp}] Desligado")
                         break
 
             except Exception as e:
-                print(f"[{self.device_id}] Desligado")
+                print(f"[{self.id_disp}] Desligado")
                 break
 
             finally:
@@ -160,7 +160,7 @@ class SensorTemperatura:
         server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         #Associa o socket ao IP e porta TCP do dispositivo
-        server.bind((self.ip, self.tcp_port))
+        server.bind((self.ip, self.porta_tcp))
 
         # Habilita o socket para aceitar conexões
         server.listen()
@@ -180,33 +180,33 @@ class SensorTemperatura:
                 if envelope.HasField("command"):
                     command = envelope.command
                 else:
-                    # tratamento melhor
+                    #Tratamento
                     raise Exception("erro de comando invalido")
 
                 #Verifica se é para esse dispositivo
-                if command.device_id == self.device_id:
+                if command.device_id == self.id_disp:
                     #Processa a solicitação
                     if command.action == "DESLIGAR":
                         self.status = "OFF"
-                        print(f"[{self.device_id}] Desligado")
+                        print(f"[{self.id_disp}] Desligado")
                     elif command.action == "LIGAR":
                         self.status = "ON"
-                        print(f"[{self.device_id}] Ligado")
+                        print(f"[{self.id_disp}] Ligado")
                     elif command.action == "SETAR_INTERVALO":
                         try:
                             #Tenta converter o parâmetro para inteiro
                             novo_intervalo = int(command.parameter)
                             #Atualiza o intervalo de envio de dados
                             self.intervalo_envio = novo_intervalo
-                            print(f"[{self.device_id}] Intervalo alterado para {novo_intervalo}s")
+                            print(f"[{self.id_disp}] Intervalo alterado para {novo_intervalo}s")
                         except ValueError:
                             #Trata erro se o parâmetro não for número
-                            envelopeEnvio.erro = 'FALHA'
+                            envelopeEnvio.erro = "FALHA"
                             print("Parâmetro inválido para intervalo")
                     
                     #Confirmação de recebimento (envio de DeviceData)
                     device_data = serjipe_message_pb2.DeviceData(
-                        device_id = self.device_id,
+                        device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Temperatura atual", "Intervalo de envio"],
                         value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
@@ -224,7 +224,7 @@ class SensorTemperatura:
                     #Fecha a conexão
                     conn.close()
 
-    def send_data(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
+    def envio_dados(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
         while True:
             if(self.gateway_ip and self.status == "ON"):
                 #Simula uma leitura de temperatura
@@ -241,14 +241,14 @@ class SensorTemperatura:
                     self.temperatura_atual -= 0.1
                     
                 #Adiciona uma variação aleatória
-                variacao = random.uniform(-0.5, 0.5)
+                variacao = random.uniform(-0.3, 0.3)
                 temperatura = round(self.temperatura_atual + variacao, 1)
                 
                 temperatura = max(18.0, min(temperatura, 32.0))
 
                 #Cria a mensagem de dados do sensor
                 device_data = serjipe_message_pb2.DeviceData(
-                    device_id = self.device_id,
+                    device_id = self.id_disp,
                     status = self.status,
                     value_name = ["Temperatura atual", "Intervalo de envio"],
                     value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
@@ -262,19 +262,19 @@ class SensorTemperatura:
                 envelope.device_data.CopyFrom(device_data)
 
                 #Envia os dados para o gateway
-                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.gateway_udp_port))
+                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.porta_udp_gateway))
 
             time.sleep(self.intervalo_envio)
 
     def run(self): #Inicia as funcionalidades em threads separadas
         #Escuta por pedidos de descoberta multicast
-        threading.Thread(target=self.discovery_listener, daemon=True).start()
+        threading.Thread(target=self.descoberta_multicast, daemon=True).start()
 
         #Servidor TCP para comandos
         threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
 
         #Envio de dados
-        threading.Thread(target=self.send_data, daemon=True).start()
+        threading.Thread(target=self.envio_dados, daemon=True).start()
 
         #Loop que mantem o programa rodando
         while True:
