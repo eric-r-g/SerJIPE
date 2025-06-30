@@ -1,41 +1,51 @@
 import { useState } from "react";
-import type { Command, DeviceInfo } from "../../../lib/interfaces.ts";
+import type { Command, DeviceData, DeviceInfo } from "../../../lib/interfaces.ts";
 import axios from "axios";
 import { getAxiosConfig } from "../../../lib/utils.ts";
 
 interface SendCommandProps{
-    device: DeviceInfo
+    device: DeviceInfo,
+    updateDevice: (device: DeviceData) => void;
+    updateWarning: (newWarning: string) => void;
 }
 function SendCommand(props: SendCommandProps){
-    const [comando, setComando] = useState({action: '', device_id: '', parameter: ''} as Command);
+    const [comando, setComando] = useState({action: '', deviceId: '', parameter: ''} as Command);
 
-    function enviarComando(action = comando.action, device_id = comando.device_id, parameter = comando.parameter){
+    function enviarComando(action = comando.action, deviceId = comando.deviceId, parameter = comando.parameter){
         let data = {
             action: action,
-            device_id: device_id,
+            deviceId: deviceId,
             parameter: parameter
         } as Command;
 
-        axios.request(getAxiosConfig(JSON.stringify(data), '/api/comando', 'POST'))
+        axios.request(getAxiosConfig(data, '/api/comando', 'POST'))
         .then((response) =>{
-            console.log(response.data); // parsear isso aqui direito depois de testar
+            let deviceData = {
+                deviceId: response.data.deviceId,
+                status: response.data.status,
+                timestamp: response.data.timestamp,
+                valueNameList: response.data.valueNameList,
+                valueList: response.data.valueList
+            } as DeviceData;
+
+            props.updateDevice(deviceData);
         })
-        .catch((err) => console.log(err)); // fazer um display de erro se der tempo
+        .catch((err) => props.updateWarning("O servidor respondeu com: "+err.message));
     }
 
     return(
         <div>
-            <label htmlFor={`action${props.device.device_id}`}>Ação: </label>
+            <label htmlFor={`action${props.device.deviceId}`}>Ação: </label>
             <input type="text" onChange={(e) => setComando((prev) =>{
                 prev.action = e.target.value;
                 return prev;
             })}/>
-            <label htmlFor={`device_id${props.device.device_id}`}>Id do dispositivo: </label>
+            <label htmlFor={`device_id${props.device.deviceId}`}>Id do dispositivo: </label>
             <input type="text" onChange={(e) => setComando((prev) =>{
-                prev.device_id = e.target.value;
+                prev.deviceId = e.target.value;
                 return prev;
             })}/>
-            <label htmlFor={`parameter${props.device.device_id}`}>Parametro: </label>
+            <label htmlFor={`parameter${props.device.deviceId}`}>Parametro: </label>
             <input type="text" onChange={(e) => setComando((prev) =>{
                 prev.parameter = e.target.value;
                 return prev;

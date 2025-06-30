@@ -11,9 +11,19 @@ export function sendTCPData(port, data){
                     socket.end();
                     resolve(message);
                 })
+
+                socket.on('error', (err) => reject(err.code))
+
+                socket.setTimeout(5000);
+                socket.on('timeout', () => {
+                    reject("O gateway demorou muito para responder (TIMEOUT)")
+                    socket.end();
+                })
             })
+
+
         }catch(err){
-            reject(err);
+            reject(err.code);
         }
     });
 }

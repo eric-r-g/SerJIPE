@@ -216,7 +216,7 @@ class SensorTemperatura:
                     self.temperatura_atual -= 0.1
                     
                 #Adiciona uma variação aleatória
-                variacao = random.uniform(-0.1, 0.1)
+                variacao = random.uniform(-0.5, 0.5)
                 temperatura = round(self.temperatura_atual + variacao, 1)
                 
                 temperatura = max(18.0, min(temperatura, 32.0))

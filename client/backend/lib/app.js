@@ -1,11 +1,18 @@
 import express from 'express';
 import { createRequire } from 'module';
 import { sendTCPData } from './socket_functions.js';
+import bodyParser from 'body-parser';
 const require = createRequire(import.meta.url);
 
 const messages = require('./serjipe_message_pb.cjs');
 const gatewayPort = 8000;
 const app = express();
+
+app.use(express.static('dist'));
+
+app.get('/', (req, res) =>{
+    res.sendFile('/index.html', {root: '/dist'});
+})
 
 // Listar todos os dispositivos
 app.get('/api/dispositivos', (req, res) =>{
@@ -18,9 +25,9 @@ app.get('/api/dispositivos', (req, res) =>{
             let dispositivos = messages.ListarDispositivos.deserializeBinary(response);
             res.send(JSON.stringify(dispositivos.toObject()));
         })
-        .catch((err) => res.status(500).send(err.message));
+        .catch((err) => res.status(500).send(err));
     }catch(e){
-        res.status(500).send(err.message);
+        res.status(500).send(err.code);
     }
 })
 
@@ -28,16 +35,16 @@ app.get('/api/dispositivos', (req, res) =>{
     /*
         requisição:
         {
-            device_id: string,
+            deviceId: string,
             action: string,
             parameter: string
         }
     */
-app.post('/api/comando', (req, res) =>{
+app.post('/api/comando', bodyParser.json(), (req, res) =>{
     const comando = new messages.Command();
 
-    const data = req.body.data;
-    comando.setDeviceId(data.device_id); comando.setAction(data.action); comando.setParameter(data.parameter);
+    const data = req.body;
+    comando.setDeviceId(data.deviceId); comando.setAction(data.action); comando.setParameter(data.parameter);
 
     try{
         sendTCPData(gatewayPort, comando.serializeBinary())
@@ -45,9 +52,9 @@ app.post('/api/comando', (req, res) =>{
             let device_data = messages.DeviceData.deserializeBinary(response);
             res.send(JSON.stringify(device_data.toObject()));
         })
-        .catch((err) => res.status(500).send(err.message));
+        .catch((err) => res.status(500).send(err));
     }catch(e){
-        res.status(500).send(err.message);
+        res.status(500).send(err.code);
     }
 })
 

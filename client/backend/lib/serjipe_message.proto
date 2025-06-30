@@ -29,5 +29,17 @@ message Discover {
 }
 
 message ListarDispositivos {
-    repeated DeviceInfo devices = 1;
+    string amount = 1;
+    repeated DeviceInfo devices = 2;
+}
+
+message Envelope{
+    oneof carga{
+        Discover discover = 1;
+        Command command = 2;
+        DeviceData device_data = 3;
+        DeviceInfo device_info = 4;
+        ListarDispositivos listar_dispositivos = 5;
+    }
+    string erro = 6;
 }
