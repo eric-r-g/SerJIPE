@@ -47,7 +47,7 @@ def multicast_envio():
     # envelopar a mensagem
     envelope = serjipe_message_pb2.Envelope()
     envelope.discover.CopyFrom(discover)
-    envelope.erro = "sucesso"
+    envelope.erro = "SUCESSO"
 
     bytes_envelope = envelope.SerializeToString()
 
@@ -72,7 +72,7 @@ def multicast_retorno():
     try:
         while(True):
             data, addr = socket_multicast_respostas.recvfrom(1024)
-            envelope_entrada = serjipe_message_pb2.DeviceInfo()
+            envelope_entrada = serjipe_message_pb2.Envelope()
             envelope_entrada.ParseFromString(data)
             
             if envelope_entrada.HasField("device_info"):
@@ -121,17 +121,20 @@ def multicast_periodico():
 
 
 def socket_udp_sensor():
-    socket_udp_sensor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    socket_udp_sensor.bind(('0.0.0.0', PORT_UDP_SENSOR))
+    sock_udp_sensor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock_udp_sensor.bind(('0.0.0.0', PORT_UDP_SENSOR))
 
-    socket_udp_sensor.settimeout(1.0)
+    sock_udp_sensor.settimeout(1.0)
 
     try:
         while True:
             try:
-                data, addr = socket_udp_sensor.recvfrom(1024)
-                response = serjipe_message_pb2.DeviceData()
-                response.ParseFromString(data)
+                data, addr = sock_udp_sensor.recvfrom(1024)
+                Envelope_entrada = serjipe_message_pb2.Envelope()
+                Envelope_entrada.ParseFromString(data)
+                
+                if Envelope_entrada.HasField("device_data"):
+                    response = Envelope_entrada.device_data
 
                 d = {
                     "status" : response.status,
@@ -147,7 +150,7 @@ def socket_udp_sensor():
     except Exception as e:
         print(f"Erro: {e}")
     finally:
-        socket_udp_sensor.close()
+        sock_udp_sensor.close()
 
 
 # cria um socket com o cliente
@@ -226,7 +229,8 @@ def server_cliente():
                         try:
                             socket_dispositivo.connect((ip, porta))
 
-                            bytes_response = response.SerializeToString()
+                            
+                            bytes_response = envelope_entrada.SerializeToString()
                             socket_dispositivo.settimeout(1.0)
                             socket_dispositivo.sendall(bytes_response)
                             
