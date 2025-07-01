@@ -23,7 +23,22 @@ function App() {
     .then((response) =>{
         updateWarning(`Ultima atualização em ${new Date().toLocaleString()}`);
         let list = (response.data.devicesList) as Array<DeviceInfo>;
+
+        // Formatar e organizar a lista antes de atualizar
         list.sort((a, b) => a.port - b.port);
+        list.map((dispositivo) =>{
+            if(dispositivo.type == 'sensor_trafego'){
+                let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
+                let formatar = dispositivo.data.valueList[indice_formatar];
+                dispositivo.data.valueList[indice_formatar] = Number(formatar).toFixed(1);
+            }else if(dispositivo.type == 'poste'){
+                let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
+                let formatar = dispositivo.data.valueList[indice_formatar];
+                dispositivo.data.valueList[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
+            }
+
+            return dispositivo;
+        })
         updateDevices(response.data.devicesList);
     })
     .catch((err) => setWarning(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err}`));

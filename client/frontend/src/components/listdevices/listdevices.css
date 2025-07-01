@@ -46,7 +46,7 @@
     padding: 5px;
 }
 .device-info-wrapper > div{
-    height: 150px;
+    height: fit-content;
 
     padding: 3px;
 

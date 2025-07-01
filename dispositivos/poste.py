@@ -193,11 +193,11 @@ class Poste:
                     elif command.action == "LIGAR":
                         self.status = "ON"
                         print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "MODO_AUTOMÁTICO":
+                    elif command.action == "MODO_AUTOMATICO":
                         self.automatico = 1
                     elif command.action == "MODO_MANUAL":
                         self.automatico = 0
-                    elif command.action == "ALTERAR BRILHO":
+                    elif command.action == "ALTERAR_BRILHO":
                         try:
                             novo_brilho = int(command.parameter)
                             self.brilho = novo_brilho
