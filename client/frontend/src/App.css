@@ -22,7 +22,8 @@
 
     text-align: center;
 
-    background-color: aqua;
+    background-color: black;
+    color: white;
 }
 #warning > p{
     z-index: 10;

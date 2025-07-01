@@ -14,7 +14,7 @@
 
 
 .devices-item{
-    background-color: aliceblue;
+    background-color: white;
 }
 
 .devices-item > .device-header-wrapper{
@@ -36,7 +36,7 @@
 }
 
 .device-info-wrapper{
-    height: 150px; /* No celular vou ter que aumentar isso */
+    height: 150px;
     display: flex;
     flex-flow: row wrap;
     gap: 5px;
@@ -47,6 +47,11 @@
 }
 .device-info-wrapper > div{
     height: 150px;
+
+    padding: 3px;
+
+    border: 1px solid black;
+    border-radius: 10px;
 }
 .device-info-wrapper > div > h3{
     margin: 0;
@@ -55,5 +60,14 @@
     display: flex;
     flex-flow: column wrap;
 
-    background-color: crimson;
+    padding: 5px;
+    gap: 2px;
+
+    background-color: black;
+    color: white;
+    border-radius: 10px;
+}
+
+button{
+    border-radius: 5px;
 }

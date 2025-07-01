@@ -26,7 +26,7 @@ function App() {
         list.sort((a, b) => a.port - b.port);
         updateDevices(response.data.devicesList);
     })
-    .catch((err) => setWarning(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err.message}`));
+    .catch((err) => setWarning(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err}`));
   }
 
   // Update all devices

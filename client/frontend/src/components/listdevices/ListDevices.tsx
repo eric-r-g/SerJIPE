@@ -43,7 +43,7 @@ function ListDevices(props: ListDevicesProps){
                                         device.data.valueNameList.map((valueName, index) =>{
                                             return(
                                                 <p id={`valueData${device.deviceId}-${index}`}>
-                                                    {valueName}: ${device.data.valueList[index]}
+                                                    {valueName}: {device.data.valueList[index]}
                                                 </p>
                                             )
                                         })

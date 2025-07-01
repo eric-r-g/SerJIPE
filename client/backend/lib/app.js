@@ -28,12 +28,13 @@ app.get('/api/dispositivos', (req, res) =>{
             let envelopeRes = messages.Envelope.deserializeBinary(response);
 
             if(envelopeRes.getErro() == "FALHA"){
+                console.log('falha')
                 res.status(500).send("Um erro ocorreu");
             }
             else if(envelopeRes.getCargaCase() == 5){
                 let dispositivos = envelopeRes.getListarDispositivos();
 
-                if(dispositivos.getAmount > 0){
+                if(parseInt(dispositivos.getAmount()) > 0){
                     res.send(JSON.stringify(dispositivos.toObject()));
                 }else{
                     res.send(JSON.stringify({devicesList: []}));

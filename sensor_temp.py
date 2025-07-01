@@ -208,7 +208,7 @@ class SensorTemperatura:
                     device_data = serjipe_message_pb2.DeviceData(
                         device_id = self.id_disp,
                         status = self.status,
-                        value_name = ["Temperatura atual", "Intervalo de envio"],
+                        value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
                         value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
                     )
 
@@ -250,7 +250,7 @@ class SensorTemperatura:
                 device_data = serjipe_message_pb2.DeviceData(
                     device_id = self.id_disp,
                     status = self.status,
-                    value_name = ["Temperatura atual", "Intervalo de envio"],
+                    value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
                     value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
                     timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                 )

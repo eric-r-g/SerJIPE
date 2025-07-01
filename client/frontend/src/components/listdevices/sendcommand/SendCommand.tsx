@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Command, DeviceData, DeviceInfo } from "../../../lib/interfaces.ts";
 import axios from "axios";
 import { getAxiosConfig } from "../../../lib/utils.ts";
@@ -9,9 +8,8 @@ interface SendCommandProps{
     updateWarning: (newWarning: string) => void;
 }
 function SendCommand(props: SendCommandProps){
-    const [comando, setComando] = useState({action: '', deviceId: '', parameter: ''} as Command);
 
-    function enviarComando(action = comando.action, deviceId = comando.deviceId, parameter = comando.parameter){
+    function enviarComando(action: string, deviceId: string, parameter: string){
         let data = {
             action: action,
             deviceId: deviceId,
@@ -33,27 +31,19 @@ function SendCommand(props: SendCommandProps){
         .catch((err) => props.updateWarning("O servidor respondeu com: "+err.message));
     }
 
-    return(
-        <div>
-            <label htmlFor={`action${props.device.deviceId}`}>Ação: </label>
-            <input type="text" onChange={(e) => setComando((prev) =>{
-                prev.action = e.target.value;
-                return prev;
-            })}/>
-            <label htmlFor={`device_id${props.device.deviceId}`}>Id do dispositivo: </label>
-            <input type="text" onChange={(e) => setComando((prev) =>{
-                prev.deviceId = e.target.value;
-                return prev;
-            })}/>
-            <label htmlFor={`parameter${props.device.deviceId}`}>Parametro: </label>
-            <input type="text" onChange={(e) => setComando((prev) =>{
-                prev.parameter = e.target.value;
-                return prev;
-            })}/>
+    if(props.device.type == 'sensor_temperatura'){
+        let interval = props.device.data.valueList[props.device.data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('intervalo')})];
 
-            <button onClick={() => enviarComando()}>Enviar</button>
-        </div>
-    )
+        return(
+            <div>
+                <button onClick={() => enviarComando('DESLIGAR', props.device.deviceId, '')}>Desligar</button>
+                <button onClick={() => enviarComando('LIGAR', props.device.deviceId, '')}>Ligar</button>
+                <label htmlFor={`param${props.device.deviceId}`}>Mudar intervalo: </label><input type="number" defaultValue={interval} name={`param${props.device.deviceId}`} id={`param${props.device.deviceId}`} onChange={(e) =>{
+                    enviarComando('SETAR_INTERVALO', props.device.deviceId, e.target.value);
+                }}/>
+            </div>
+        )
+    }
 }
 
 export default SendCommand;
