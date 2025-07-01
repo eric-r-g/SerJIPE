@@ -160,12 +160,12 @@ def socket_udp_sensor():
         try:
             # recebimento das mensagens
             data, addr = sock_udp_sensor.recvfrom(1024)
-            Envelope_entrada = serjipe_message_pb2.Envelope()
-            Envelope_entrada.ParseFromString(data)
+            envelope_entrada = serjipe_message_pb2.Envelope()
+            envelope_entrada.ParseFromString(data)
             
             # verifica se possui o campo certo
-            if Envelope_entrada.HasField("device_data"):
-                response = Envelope_entrada.device_data
+            if envelope_entrada.HasField("device_data"):
+                response = envelope_entrada.device_data
 
 
             if response.device_id in devices_dict:
@@ -232,6 +232,11 @@ def handler_comando(response, envelope_entrada):
         # atualizar para guardas as informações
         data = socket_dispositivo.recv(1024)
         envelope_retorno.ParseFromString(data)
+        
+        if envelope_retorno.HasField("device_data"):
+            response = envelope_retorno.device_data
+        with devices_lock:
+            devices_dict[response.device_id].CopyFrom(response)
     except Exception as e:
         print(f"erro no envio da mensagem: {e}")
         envelope_retorno.erro = f"FALHA no envio ou recebimento da mensagem: {e}"
