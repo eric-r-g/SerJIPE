@@ -120,7 +120,11 @@ def multicast_retorno():
             try:
                 with devices_lock:
                     devices_dict[response.device_id] = serjipe_message_pb2.DeviceInfo()
-                    devices_dict[response.device_id].CopyFrom(response)
+                    with devices_lock:
+                    # Cria uma NOVA instância e substitui
+                        new_data = serjipe_message_pb2.DeviceInfo()
+                        new_data.CopyFrom(response)
+                        devices_dict[response.device_id] = new_data
 
             except Exception as e:
                 print(f"Falha ao processar os dados: {e}")
@@ -167,10 +171,11 @@ def socket_udp_sensor():
             if envelope_entrada.HasField("device_data"):
                 response = envelope_entrada.device_data
 
-
-            if response.device_id in devices_dict:
-                with devices_lock:
-                    devices_dict[response.device_id].device_data.CopyFrom(response)
+            with devices_lock:
+                if response.device_id in devices_dict:
+                    new_data = serjipe_message_pb2.DeviceData()
+                    new_data.CopyFrom(response)
+                    devices_dict[response.device_id].device_data = new_data
         except socket.timeout:
             continue
         except Exception as e:
@@ -236,7 +241,9 @@ def handler_comando(response, envelope_entrada):
         if envelope_retorno.HasField("device_data"):
             response = envelope_retorno.device_data
         with devices_lock:
-            devices_dict[response.device_id].CopyFrom(response)
+            new_data = serjipe_message_pb2.DeviceData()
+            new_data.CopyFrom(response)
+            devices_dict[response.device_id].device_data = new_data
     except Exception as e:
         print(f"erro no envio da mensagem: {e}")
         envelope_retorno.erro = f"FALHA no envio ou recebimento da mensagem: {e}"
