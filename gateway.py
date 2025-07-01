@@ -149,7 +149,7 @@ def multicast_periodico():
     while True:
         try:
             multicast_envio()
-            time.sleep(30.0)   # espera de 30 segundos antes do proximo multicast
+            time.sleep(10.0)   # espera de 30 segundos antes do proximo multicast
         except Exception as e:
             print(f"erro no multicast periodico: {e}")      # falta um tratamento melhor
             continue
@@ -268,7 +268,7 @@ def handler_comando(response, envelope_entrada):
         socket_dispositivo.settimeout(1.0)
         socket_dispositivo.sendall(bytes_response)
         
-        
+        # atualizar para guardas as informações
         data = socket_dispositivo.recv(1024)
         envelope_retorno.ParseFromString(data)
     except Exception as e:
