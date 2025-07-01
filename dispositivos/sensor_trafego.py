@@ -7,19 +7,19 @@ from datetime import datetime   #Obter data/hora atual
 import uuid     #Gerar id's únicos
 import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
 
-class Poste:
+class SensorTrafego:
     def __init__(self): #Inicialização do dispositivo
         #Especificidades
-        self.brilho = 100
-        self.automatico = 0
-        self.consumo_medio = 0
+        self.intervalo_envio = 15
+        self.contagem_veiculos = random.randint(40, 300)
+        self.nivel_congestionamento = random.randint(10, 90)  # (%)
 
         #Gera um ID único para o dispositivo
-        self.id_disp = f"P-{str(uuid.uuid4())[:8]}"
+        self.id_disp = f"TRAF-{str(uuid.uuid4())[:8]}"
 
-        self.tipo = "poste"
+        self.tipo = "sensor_trafego"
 
-        self.status = "OFF"
+        self.status = "ON"
 
         self.ip = self.obter_ip_local()
 
@@ -34,7 +34,7 @@ class Poste:
         self.gateway_ip = None
         self.porta_udp_gateway = 0
 
-        print(f"Poste {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Sensor {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
@@ -109,8 +109,8 @@ class Poste:
                                 data = serjipe_message_pb2.DeviceData(
                                     device_id = self.id_disp,
                                     status = self.status,
-                                    value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                                    value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"]
+                                    value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
+                                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)]
                                 )
                             )
                             #Cria o envelope de envio
@@ -193,38 +193,24 @@ class Poste:
                     elif command.action == "LIGAR":
                         self.status = "ON"
                         print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "MODO_AUTOMÁTICO":
-                        self.automatico = 1
-                    elif command.action == "MODO_MANUAL":
-                        self.automatico = 0
-                    elif command.action == "ALTERAR BRILHO":
+                    elif command.action == "SETAR_INTERVALO":
                         try:
-                            novo_brilho = int(command.parameter)
-                            self.brilho = novo_brilho
+                            #Tenta converter o parâmetro para inteiro
+                            novo_intervalo = int(command.parameter)
+                            #Atualiza o intervalo de envio de dados
+                            self.intervalo_envio = novo_intervalo
+                            print(f"[{self.id_disp}] Intervalo alterado para {novo_intervalo}s")
                         except ValueError:
+                            #Trata erro se o parâmetro não for número
                             envelopeEnvio.erro = "FALHA"
-                            print("Parâmetro inválido para brilho")
-
-                    #Atualizar consumo
-                    if(self.status == "ON"):
-                        self.consumo_medio = (self.brilho/100)*0.7
-                    else:
-                        self.consumo_medio = 0
-                        
-                    #Atualizar o estado
-                    if(self.automatico):
-                        hora = datetime.now().hour
-                        if(hora >= 18 or hora <= 6):
-                            self.status = "ON"
-                        else:
-                            self.status = "OFF"
+                            print("Parâmetro inválido para intervalo")
                     
                     #Confirmação de recebimento (envio de DeviceData)
                     device_data = serjipe_message_pb2.DeviceData(
                         device_id = self.id_disp,
                         status = self.status,
-                        value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                        value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"]
+                        value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
+                        value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)]
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)
@@ -239,6 +225,39 @@ class Poste:
                     #Fecha a conexão
                     conn.close()
 
+    def envio_dados(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
+        while True:
+            if(self.gateway_ip and self.status == "ON"):
+                hora = datetime.now().hour
+                if 6 <= hora < 18:
+                    mudanca_frota = random.randint(-10, 20)
+                else:
+                    mudanca_frota = random.randint(-20, 10)
+                    
+                self.nivel_congestionamento += mudanca_frota/self.contagem_veiculos
+                self.contagem_veiculos += mudanca_frota
+                self.contagem_veiculos = max(20, min(self.contagem_veiculos, 500))
+
+                #Cria a mensagem de dados do sensor
+                device_data = serjipe_message_pb2.DeviceData(
+                    device_id = self.id_disp,
+                    status = self.status,
+                    value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
+                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
+                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                )
+
+                #Socket UDP temporário
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+                envelope = serjipe_message_pb2.Envelope()
+                envelope.device_data.CopyFrom(device_data)
+
+                #Envia os dados para o gateway
+                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.porta_udp_gateway))
+
+            time.sleep(self.intervalo_envio)
+
     def run(self): #Inicia as funcionalidades em threads separadas
         #Escuta por pedidos de descoberta multicast
         threading.Thread(target=self.descoberta_multicast, daemon=True).start()
@@ -246,10 +265,13 @@ class Poste:
         #Servidor TCP para comandos
         threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
 
+        #Envio de dados
+        threading.Thread(target=self.envio_dados, daemon=True).start()
+
         #Loop que mantem o programa rodando
         while True:
             time.sleep(1)   #Evitar que termine imediatamente
 
 if __name__ == "__main__":
-    poste = Poste()
-    poste.run()
+    sensor = SensorTrafego()
+    sensor.run()
