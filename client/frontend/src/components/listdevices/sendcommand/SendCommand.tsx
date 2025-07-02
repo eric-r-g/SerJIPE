@@ -5,7 +5,7 @@ import { getAxiosConfig } from "../../../lib/utils.ts";
 interface SendCommandProps{
     device: DeviceInfo,
     updateDevice: (device: DeviceData) => void;
-    updateWarning: (newWarning: string) => void;
+    updateErrorMsg: (newErrorMsg: string) => void;
 }
 function SendCommand(props: SendCommandProps){
 
@@ -38,7 +38,7 @@ function SendCommand(props: SendCommandProps){
 
             props.updateDevice(deviceData);
         })
-        .catch((err) => props.updateWarning("O servidor respondeu com: "+err.message));
+        .catch((err) => props.updateErrorMsg("O servidor respondeu o comando com: "+err.response.data));
     }
 
     if(props.device.type == 'sensor_temperatura' || props.device.type == 'sensor_trafego'){

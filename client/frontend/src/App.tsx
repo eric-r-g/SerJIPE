@@ -9,8 +9,10 @@ import { getAxiosConfig } from './lib/utils.ts';
 function App() {
   const [devices, setDevices] = useState(new Array<DeviceInfo>());
   const [warning, setWarning] = useState("Nenhum aviso!");
+  const [errorMsg, setErrorMsg] = useState("Nenhum erro");
 
   useEffect(() =>{
+    requestDevicesList();
     const updateInterval = setInterval(() =>{
         requestDevicesList();
     }, 5000);
@@ -41,7 +43,7 @@ function App() {
         })
         updateDevices(response.data.devicesList);
     })
-    .catch((err) => setWarning(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err}`));
+    .catch((err) => setErrorMsg(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err.response.data}`));
   }
 
   // Update all devices
@@ -58,8 +60,12 @@ function App() {
     setDevices(newDevices);
   }
 
-  function updateWarning(newWarning:  string){
+  function updateWarning(newWarning: string){
     setWarning(newWarning);
+  }
+
+  function updateErrorMsg(newErrorMsg: string){
+    setErrorMsg(newErrorMsg);
   }
 
   return (
@@ -72,9 +78,10 @@ function App() {
             </header>
             <div id='warning'>
                 <p>{warning}</p>
+                <p style={{color: 'rgb(255, 119, 119)'}}>{errorMsg}</p>
             </div>
         </div>
-        <ListDevices devices={devices} updateDevice={updateDevice} updateWarning={updateWarning}/>
+        <ListDevices devices={devices} updateDevice={updateDevice} updateErrorMsg={updateErrorMsg}/>
     </div>
   )
 }

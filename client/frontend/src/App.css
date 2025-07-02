@@ -16,6 +16,7 @@
     height: 20%;
 
     display: flex;
+    flex-flow: column;
     align-items: center;
 
     padding: 5px;

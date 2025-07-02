@@ -6,7 +6,7 @@ import SendCommand from "./sendcommand/SendCommand";
 interface ListDevicesProps{
     devices: Array<DeviceInfo> // any tem que ser mudado pra device dps
     updateDevice: (device: DeviceData) => void;
-    updateWarning: (newWarning: string) => void;
+    updateErrorMsg: (newErrorMsg: string) => void;
 }
 
 function ListDevices(props: ListDevicesProps){
@@ -50,7 +50,7 @@ function ListDevices(props: ListDevicesProps){
                                 </div>
                             </div>
                             <div><h3>Enviar comando</h3>
-                                <SendCommand device={device} updateDevice={props.updateDevice} updateWarning={props.updateWarning}/>
+                                <SendCommand device={device} updateDevice={props.updateDevice} updateErrorMsg={props.updateErrorMsg}/>
                             </div>
                         </div>
                     </div>

@@ -5,25 +5,30 @@ export function sendTCPData(port, data){
     return new Promise((resolve, reject) =>{
         try{
             const socket = new Net.Socket();
+            socket.setTimeout(5000);
+
             socket.connect({port: port, host: 'localhost'}, () =>{
-                socket.write(data);
+                try{
+                    socket.write(data);
+                }catch(err){
+                    reject(`Erro ao enviar mensagem para o gateway no port ${port}: ${err.message}`);
+                }
                 socket.on('data', (message) =>{
                     socket.end();
                     resolve(message);
                 })
 
-                socket.on('error', (err) => reject(err.code))
-
-                socket.setTimeout(5000);
-                socket.on('timeout', () => {
-                    reject("O gateway demorou muito para responder (TIMEOUT)")
-                    socket.end();
-                })
             })
 
+            socket.on('error', (err) => reject(`Erro ao se conectar com o gateway no port ${port}: ${err.code}`));
+
+            socket.on('timeout', () => {
+                socket.end();
+                reject("O gateway demorou muito para responder (TIMEOUT)");
+            })
 
         }catch(err){
-            reject(err.code);
+            reject("Erro na criação do socket TCP: "+err.message);
         }
     });
 }

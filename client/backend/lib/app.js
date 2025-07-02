@@ -46,7 +46,7 @@ app.get('/api/dispositivos', (req, res) =>{
         })
         .catch((err) => res.status(500).send(err));
     }catch(e){
-        res.status(500).send(err.code);
+        res.status(500).send("Erro inesperado ao enviar mensagem para o gateway: "+err.message);
     }
 })
 
@@ -86,7 +86,7 @@ app.post('/api/comando', bodyParser.json(), (req, res) =>{
         })
         .catch((err) => res.status(500).send(err));
     }catch(e){
-        res.status(500).send(err.code);
+        res.status(500).send("Erro inesperado ao enviar comando para o gateway: "+err.message);
     }
 })
 
