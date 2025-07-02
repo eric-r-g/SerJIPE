@@ -110,7 +110,8 @@ class SensorTrafego:
                                     device_id = self.id_disp,
                                     status = self.status,
                                     value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
-                                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)]
+                                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
+                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                                 )
                             )
                             #Cria o envelope de envio
@@ -210,7 +211,8 @@ class SensorTrafego:
                         device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
-                        value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)]
+                        value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
+                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)

@@ -109,7 +109,8 @@ class SensorTemperatura:
                                     device_id = self.id_disp,
                                     status = self.status,
                                     value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
-                                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
+                                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
+                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                                 )
                             )
                             #Cria o envelope de envio
@@ -209,7 +210,8 @@ class SensorTemperatura:
                         device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
-                        value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)]
+                        value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
+                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)

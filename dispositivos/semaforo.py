@@ -110,7 +110,8 @@ class Semaforo:
                                     device_id = self.id_disp,
                                     status = self.status,
                                     value_name = ["Tempo verde", "Tempo amarelo", "Tempo vermelho"],
-                                    value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)]
+                                    value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)],
+                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                                 )
                             )
                             #Cria o envelope de envio
@@ -209,7 +210,8 @@ class Semaforo:
                         device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Tempo verde", "Tempo amarelo", "Tempo vermelho"],
-                        value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)]
+                        value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)],
+                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)

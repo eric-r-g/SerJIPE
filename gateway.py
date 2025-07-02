@@ -169,7 +169,6 @@ def socket_udp_sensor():
             # verifica se possui o campo certo
             if envelope_entrada.HasField("device_data"):
                 response = envelope_entrada.device_data
-                #print(envelope_entrada.device_data.timestamp)
 
             with devices_lock:
                 if response.device_id in devices_dict:

@@ -110,7 +110,8 @@ class Lixeira:
                                     device_id = self.id_disp,
                                     status = self.status,
                                     value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
-                                    value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"]
+                                    value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"],
+                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                                 )
                             )
                             #Cria o envelope de envio
@@ -209,7 +210,8 @@ class Lixeira:
                         device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
-                        value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"]
+                        value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"],
+                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)

@@ -54,9 +54,11 @@ function SendCommand(props: SendCommandProps){
             </div>
         )
     }else if(props.device.type == 'semaforo'){
-        let tempoVerde = props.device.data.valueList[props.device.data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('verde')})];
-        let tempoAmarelo = props.device.data.valueList[props.device.data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('amarelo')})];
-        let tempoVermelho = props.device.data.valueList[props.device.data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('vermelho')})];
+        let data = props.device.data;
+
+        let tempoVerde = data.valueList[data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('verde')})];
+        let tempoAmarelo = data.valueList[data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('amarelo')})];
+        let tempoVermelho = data.valueList[data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('vermelho')})];
 
         return(
             <div>

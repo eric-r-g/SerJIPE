@@ -35,10 +35,9 @@ function ListDevices(props: ListDevicesProps){
                                     <p>Porta: {device.port}</p>
                                 </div>
                             </div>
-                            <div><h3>Ultima leitura</h3>
+                            <div><h3>Ultima leitura - {device.data.timestamp}</h3>
                                 <div>
                                     <p>{device.data.status}</p>
-                                    <p>{device.data.timestamp}</p>
                                     {
                                         device.data.valueNameList.map((valueName, index) =>{
                                             return(

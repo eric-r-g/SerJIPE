@@ -110,7 +110,8 @@ class Poste:
                                     device_id = self.id_disp,
                                     status = self.status,
                                     value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                                    value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"]
+                                    value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
+                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                                 )
                             )
                             #Cria o envelope de envio
@@ -224,7 +225,8 @@ class Poste:
                         device_id = self.id_disp,
                         status = self.status,
                         value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                        value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"]
+                        value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
+                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
                     )
 
                     envelopeEnvio.device_data.CopyFrom(device_data)
