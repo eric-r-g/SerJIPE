@@ -169,12 +169,13 @@ def socket_udp_sensor():
             # verifica se possui o campo certo
             if envelope_entrada.HasField("device_data"):
                 response = envelope_entrada.device_data
+                #print(envelope_entrada.device_data.timestamp)
 
             with devices_lock:
                 if response.device_id in devices_dict:
                     new_data = serjipe_message_pb2.DeviceData()
                     new_data.CopyFrom(response)
-                    devices_dict[response.device_id].data = new_data
+                    devices_dict[response.device_id].data.CopyFrom(response)
         except socket.timeout:
             continue
         except Exception as e:
@@ -242,7 +243,7 @@ def handler_comando(response, envelope_entrada):
         with devices_lock:
             new_data = serjipe_message_pb2.DeviceData()
             new_data.CopyFrom(response)
-            devices_dict[response.device_id].data = new_data
+            devices_dict[response.device_id].data.CopyFrom(new_data)
     except Exception as e:
         print(f"erro no envio da mensagem: {e}")
         envelope_retorno.erro = f"FALHA no envio ou recebimento da mensagem: {e}"
