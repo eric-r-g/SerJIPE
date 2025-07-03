@@ -1,6 +1,6 @@
 # SerJIPE
 
-trabalho de distribuição de processos e dados, voltado para a criação de um modelo de uma cidade inteligente que funciona em uma rede local
+Trabalho de distribuição de processos e dados, voltado para a criação de um modelo de uma cidade inteligente com múltiplos dispositivos que funciona em uma rede local
 
 ## Índice
 
