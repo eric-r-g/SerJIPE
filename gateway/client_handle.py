@@ -15,11 +15,11 @@ def handler_comando(response, envelope_entrada):
         print(f"Falha na criação do socket de repassagem: {e}")
         return None, True
 
-    device_info, erro = get_device_info()
+    device_info, erro = get_device_info(response.device_id)
     
     if erro:
+        print("erro no get_info")
         return None, True
-
 
     response = None
     try:
@@ -51,7 +51,6 @@ def handler_comando(response, envelope_entrada):
             socket_dispositivo.close()
 
     return response, False
-
 
 def server_cliente():
     # criação do socket tcp cliente
@@ -103,7 +102,8 @@ def server_cliente():
 
                 envelope_retorno.erro = "SUCESSO"
 
-            except:
+            except Exception as e:
+                
                 envelope_retorno.erro = "FALHA"
 
             try:
