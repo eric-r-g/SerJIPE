@@ -16,8 +16,7 @@ def add_device(device_info):
 def atualizar_device_data(device_data):
     with devices_lock:
         if device_data.device_id in device_dict:
-            device_dict[device_data.device_id].data = serjipe_message_pb2.DeviceData()
-            device_dict[device_data.device_id].data.Copyfrom(device_data)
+            device_dict[device_data.device_id].data.CopyFrom(device_data)
 
 def listar_devices():
     retorno = None
