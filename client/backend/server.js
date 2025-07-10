@@ -1,7 +1,15 @@
-import server from './lib/app.js';
+import App from './lib/app.js';
 
 const PORT = 8003;
 
-server.listen(PORT, () =>{
-    console.log('server listening on http://localhost:'+PORT);
-})
+try{
+    const app = new App('../../gateway/main.py');
+
+    app.gateway.startListening((data) => console.log(`Gateway: ${data}`));
+
+    app.listen(PORT, () =>{
+        console.log(`Server listening on http://localhost:${PORT}`);
+    })
+}catch(err){
+    console.trace(err);
+}
