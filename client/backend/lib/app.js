@@ -18,7 +18,7 @@ class App {
         this.server.use(express.static('dist'));
         this.server.use(express.json());
 
-        setEndpoints(this.server);
+        setEndpoints(this);
     }
 
     listen(PORT, callback){
