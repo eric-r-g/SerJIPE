@@ -1,29 +1,40 @@
+"""Basicamente, a gente vai trocar o UDP pelo RabbitMQ para receber os dados dos sensores.
+
+Na Descoberta: O Gateway agora tem que mandar a mensagem de anúncio em JSON (não mais em Protobuf) e, 
+nessa mensagem, precisa incluir o endereço do RabbitMQ.
+
+No Recebimento de Dados: você precisa criar um "ouvinte" novo para o RabbitMQ que rode numa thread separada. 
+Ele vai receber os dados de temperatura o sensor envia, também em JSON, e atualizar o sistema."""
+
+
+
 import socket
 import threading
-import struct   #Para manipulação de dados binários (usado no multicast)
+import struct
 import time
 import random
-from datetime import datetime   #Obter data/hora atual
-import uuid     #Gerar id's únicos
-import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
+from datetime import datetime
+import uuid
+#import serjipe_message_pb2  #não usaremos mais protobuf.
+import json  #Usaremos JSON para a descoberta e para as mensagens do broker
+import pika  #A biblioteca para se comunicar com o RabbitMQ
 
 class SensorTemperatura:
-    def __init__(self): #Inicialização do dispositivo
-        #Especificidades
+    def __init__(self):  # Inicialização do dispositivo
+
+        
+        # Especificidades
         self.temperatura_atual = 25
         self.intervalo_envio = 15
 
-        #Gera um ID único para o dispositivo
+        # Gera um ID único para o dispositivo
         self.id_disp = f"TEMP-{str(uuid.uuid4())[:8]}"
-
         self.tipo = "sensor_temperatura"
-
         self.status = "ON"
-
         self.ip = self.obter_ip_local()
 
-        #Escolhe uma porta TCP aleatória
-        self.porta_tcp = random.randint(10000, 20000)
+       
+        # self.porta_tcp = random.randint(10000, 20000)
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -31,256 +42,151 @@ class SensorTemperatura:
 
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
-        self.porta_udp_gateway = 0
+        #troca a porta UDP pelo dicionário de informações do Broker
+       
+        self.broker_info = None  #novo
 
-        print(f"Sensor {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+      
+        print(f"Sensor {self.id_disp} iniciado em {self.ip}")
 
-    def obter_ip_local(self): #Obtém o endereço local da máquina
-        #Cria um socket temporário UDP
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #família (IPv4), tipo (UDP)
+    def obter_ip_local(self):  #Obtém o endereço local da máquina
+   
+     
+       
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         try:
-            #Tenta conectar a um servidor externo
             s.connect(("8.8.8.8", 80))
-
-            #Obtém o endereço IP local usado na conexão
             ip = s.getsockname()[0]
         except Exception:
-            #Em caso de erro, usa o IP de loopback (local host)
             ip = "127.0.0.1"
         finally:
-            #Fecha o socket
             s.close()
         return ip
-    
-    def descoberta_multicast(self):   #Escuta por pedidos de descoberta do gateway
-        while True: #Loop principal para reiniciar automaticamente
+
+    def descoberta_multicast(self):  # Escuta por pedidos de descoberta do gateway
+        while True:  # Loop principal para reiniciar automaticamente
             try:
-                #Cria socket UDP
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
-                #Associa o socket a todas as interfaces de rede na porta multicast
                 s.bind(('0.0.0.0', self.multicast_port))
-
-                #Prepara para entrar no grupo multicast
-                #Converte o endereço IP para formato binário
                 grupo = socket.inet_aton(self.grupo_multicast)
-
-                #Empacota o endereço do grupo e a interface
                 mreq = struct.pack('4s4s', grupo, socket.inet_aton('0.0.0.0'))
-
-                #Configura o socket para entrar no grupo multicast
                 s.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
-
-                #Define timeout para evitar bloqueio permanente
-                s.settimeout(5.0) 
+                s.settimeout(10.0)
 
                 print(f"[{self.id_disp}] Aguardando descoberta...")
-                
-                while True: #Loop secundário para recebimentos
+
+                while True:  # Loop secundário para recebimentos
                     try:
-                        #Aguarda receber dados no socket multicast (buffer de 1024 bytes)
                         data, endr = s.recvfrom(1024)
-
+                
+                        #Antes, Protobuf Agora,JSON.
                         try:
-                            #Desserializa a mensagem
-                            envelope = serjipe_message_pb2.Envelope()
-                            envelope.ParseFromString(data)
+                            #1. Decodifica a mensagem JSON que o Gateway enviou.
+                            mensagem_gateway = json.loads(data.decode('utf-8'))
 
-                            if envelope.HasField("discover"):
-                                mensagem = serjipe_message_pb2.Discover()
-                                mensagem.CopyFrom(envelope.discover)
-                            else:
-                                #Tratamento
-                                print("erro de comando invalido")
-                            
-                            #Salva as informações
-                            self.gateway_ip = mensagem.ip
-                            self.porta_udp_gateway = mensagem.port_udp_sensor
+                            #2. Guarda as informações
+                            self.gateway_ip = mensagem_gateway.get("gateway_ip")
+                            self.broker_info = mensagem_gateway.get("broker_info")  # <-- A informação mais importante!
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
+                            print(f"[{self.id_disp}] Info do Broker: {self.broker_info}")
 
-                            #Prepara a resposta com informações do dispositivo
-                            device_info = serjipe_message_pb2.DeviceInfo(
-                                device_id = self.id_disp,
-                                type = self.tipo,
-                                ip = self.ip,
-                                port = self.porta_tcp,
-                                data = serjipe_message_pb2.DeviceData(
-                                    device_id = self.id_disp,
-                                    status = self.status,
-                                    value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
-                                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
-                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                                )
-                            )
-                            #Cria o envelope de envio
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.device_info.CopyFrom(device_info)
-                            envelopeEnvio.erro = 'SUCESSO'
+                            #3.Prepara uma resposta em JSON, usando suas variáveis.
+                            resposta_json = {
+                                "device_id": self.id_disp,
+                                "type": self.tipo,
+                                "ip": self.ip,
+                                "status": self.status
+                            }
                             
+                            #4 Envia a resposta de volta para o Gateway.
+                            
+                            porta_resposta_gateway = 5008
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
+                                response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, porta_resposta_gateway))
+                            
+                            print(f"[{self.id_disp}] Registrado no gateway!")
+                            s.close() # Fecha o socket de descoberta
+                            return  # Termina a função (e a thread)
 
                         except Exception as e:
                             print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.erro = "FALHA"
-                        finally:
-                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
-                                
-                            print(f"[{self.id_disp}] Registrado no gateway!")
-                            continue
-                        
+                       
 
                     except socket.timeout:
-                        #Timeout - continua ouvindo
-                        continue
-                    except ConnectionResetError:
-                        print(f"[{self.id_disp}] Erro de conexão resetada. Reiniciando socket...")
-                        break  # Sai do loop secundário para recriar socket
-                    except Exception as e:
-                        print(f"[{self.id_disp}] Desligado")
-                        break
+                        continue # Volta a esperar por uma mensagem
 
             except Exception as e:
-                print(f"[{self.id_disp}] Desligado")
-                break
+                print(f"[{self.id_disp}] Erro na thread de descoberta: {e}. Tentando novamente em 5s.")
+                time.sleep(5)
 
-            finally:
-                # Fecha o socket antes de recriar
-                try:
-                    if 's' in locals():
-                        s.close()
-                except:
-                    pass
-            
-            # Espera antes de recriar o socket
+
+
+
+    def envio_dados(self):  # Afunção de envio, agora para o BROKER.
+       
+        #Primeiro, espera a thread de descoberta preencher self.broker_info.
+        print(f"[{self.id_disp}] Thread de envio aguardando informações do broker...")
+        while not self.broker_info:
             time.sleep(1)
+        
+        print(f"[{self.id_disp}] Informações do broker obtidas. Iniciando publicação de dados...")
+        
+        try:
+            #Conecta ao RabbitMQ
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.broker_info['host']))
+            channel = connection.channel()
+            queue_name = self.broker_info['queue']
+            channel.queue_declare(queue=queue_name)
 
-    def servidor_comando_tcp(self): #Servidor para receber comandos do gateway
-        #Socket TCP
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            while True:
+                if self.status == "ON":
+                    hora = datetime.now().hour
+                    temp_esperada = 28.0 if 6 <= hora < 18 else 22.0
+                    if self.temperatura_atual < temp_esperada: self.temperatura_atual += 0.1
+                    elif self.temperatura_atual > temp_esperada: self.temperatura_atual -= 0.1
+                    variacao = random.uniform(-0.3, 0.3)
+                    temperatura = round(self.temperatura_atual + variacao, 1)
+                    temperatura = max(18.0, min(temperatura, 32.0))
 
-        #Associa o socket ao IP e porta TCP do dispositivo
-        server.bind((self.ip, self.porta_tcp))
-
-        # Habilita o socket para aceitar conexões
-        server.listen()
-
-        while True:
-            try:
-                #Aceita e recebe os dados da conexão
-                conn, endr = server.accept()
-                data = conn.recv(1024)  #Até 1024 bytes
-
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.ParseFromString(data)
-
-                envelopeEnvio = serjipe_message_pb2.Envelope()
-                envelopeEnvio.erro = 'SUCESSO'
-
-                if envelope.HasField("command"):
-                    command = envelope.command
-                else:
-                    #Tratamento
-                    raise Exception("erro de comando invalido")
-
-                #Verifica se é para esse dispositivo
-                if command.device_id == self.id_disp:
-                    #Processa a solicitação
-                    if command.action == "DESLIGAR":
-                        self.status = "OFF"
-                        print(f"[{self.id_disp}] Desligado")
-                    elif command.action == "LIGAR":
-                        self.status = "ON"
-                        print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "SETAR_INTERVALO":
-                        try:
-                            #Tenta converter o parâmetro para inteiro
-                            novo_intervalo = int(command.parameter)
-                            #Atualiza o intervalo de envio de dados
-                            self.intervalo_envio = novo_intervalo
-                            print(f"[{self.id_disp}] Intervalo alterado para {novo_intervalo}s")
-                        except ValueError:
-                            #Trata erro se o parâmetro não for número
-                            envelopeEnvio.erro = "FALHA"
-                            print("Parâmetro inválido para intervalo")
+                    # Cria a mensagem como um dicionário Python (que será convertido para JSON).
                     
-                    #Confirmação de recebimento (envio de DeviceData)
-                    device_data = serjipe_message_pb2.DeviceData(
-                        device_id = self.id_disp,
-                        status = self.status,
-                        value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
-                        value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
-                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                    mensagem_dados = {
+                        "device_id": self.id_disp,
+                        "status": self.status,
+                        "value_name": ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
+                        "value": [f"{temperatura:.1f}", str(self.intervalo_envio)],
+                        "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                    }
+
+                    # Envia os dados para a fila do RabbitMQ.
+                    channel.basic_publish(
+                        exchange='',
+                        routing_key=queue_name,
+                        body=json.dumps(mensagem_dados)
                     )
-
-                    envelopeEnvio.device_data.CopyFrom(device_data)
-                    
-                    conn.send(envelopeEnvio.SerializeToString())
-
-            except Exception as e:
-                print(f"Erro no servidor TCP: {str(e)}")
-
-            finally:
-                if ('conn' in locals()):
-                    #Fecha a conexão
-                    conn.close()
-
-    def envio_dados(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
-        while True:
-            if(self.gateway_ip and self.status == "ON"):
-                #Simula uma leitura de temperatura
-                hora = datetime.now().hour
-                if 6 <= hora < 18:
-                    temp_esperada = 28.0
-                else:
-                    temp_esperada = 22.0
-                    
-                #Ajusta gradualmente para a temperatura esperada
-                if self.temperatura_atual < temp_esperada:
-                    self.temperatura_atual += 0.1
-                elif self.temperatura_atual > temp_esperada:
-                    self.temperatura_atual -= 0.1
-                    
-                #Adiciona uma variação aleatória
-                variacao = random.uniform(-0.3, 0.3)
-                temperatura = round(self.temperatura_atual + variacao, 1)
                 
-                temperatura = max(18.0, min(temperatura, 32.0))
+                time.sleep(self.intervalo_envio)
+        
+        except pika.exceptions.AMQPConnectionError as e:
+            print(f"[{self.id_disp}] CRÍTICO: Perda de conexão com o RabbitMQ. {e}")
+        finally:
+            if 'connection' in locals() and connection.is_open:
+                connection.close()
+            print(f"[{self.id_disp}] Thread de envio encerrada.")
 
-                #Cria a mensagem de dados do sensor
-                device_data = serjipe_message_pb2.DeviceData(
-                    device_id = self.id_disp,
-                    status = self.status,
-                    value_name = ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
-                    value = [f"{self.temperatura_atual:.1f}", str(self.intervalo_envio)],
-                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                )
-
-                #Socket UDP temporário
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.device_data.CopyFrom(device_data)
-
-                #Envia os dados para o gateway
-                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.porta_udp_gateway))
-
-            time.sleep(self.intervalo_envio)
-
-    def run(self): #Inicia as funcionalidades em threads separadas
-        #Escuta por pedidos de descoberta multicast
+    def run(self):  # Inicia as funcionalidades em threads separadas
+       
         threading.Thread(target=self.descoberta_multicast, daemon=True).start()
 
-        #Servidor TCP para comandos
-        threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
+    
 
-        #Envio de dados
+
         threading.Thread(target=self.envio_dados, daemon=True).start()
 
-        #Loop que mantem o programa rodando
+        #Loop que mantem o rodando
         while True:
-            time.sleep(1)   #Evitar que termine imediatamente
+            time.sleep(1)
 
 if __name__ == "__main__":
     sensor = SensorTemperatura()
