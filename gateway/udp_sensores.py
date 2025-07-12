@@ -1,41 +1,66 @@
-import socket
-import serjipe_message_pb2
+import pika
+import json
+import threading
+import time
 
 from config import *
 from devices_manager import atualizar_device_data
 
-def socket_udp_sensor():
-    # altera para que seja ao inves de um sensor dict, seja nos dispositivos (necessitando de thread lock)
+# generalizar os processamentos 
 
-    sock_udp_sensor = None
-    try:
-        # cria um socket udp para ouvir as respostas do udp
-        sock_udp_sensor = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock_udp_sensor.bind(('0.0.0.0', PORT_UDP_SENSOR))
+def callback(ch, method, properties, body):
+    # aqui será substituido pelo devido processamento;
+    print(body)
 
-        sock_udp_sensor.settimeout(1.0)
-    except Exception as e:
-        print(f"erro na criação do socket_sensor")
-        if sock_udp_sensor:
-            sock_udp_sensor.close()
-        return
-
-    while True:
+def sensor_receiver(connection, queue_type):
+    # caso a conexão caia, ele vai tentar se reconectar
+    while(True):
+        channel = None
         try:
-            # recebimento das mensagens
-            data, addr = sock_udp_sensor.recvfrom(1024)
-            envelope_entrada = serjipe_message_pb2.Envelope()
-            envelope_entrada.ParseFromString(data)
-            
-            # verifica se possui o campo certo
-            if envelope_entrada.HasField("device_data"):
-                atualizar_device_data(envelope_entrada.device_data)
+            # cria o canal de comunicação
+            channel= connection.channel()
+            channel.queue_declare(
+                queue=queue_type,
+                durable=True
+            )
 
-        except socket.timeout:
-            continue
+            # estabelece o callback e começa a consumir
+            channel.basic_consume(queue=queue_type, auto_ack=True, on_message_callback=callback)
+            channel.start_consuming()
         except Exception as e:
-            print(f"Erro no recebimento da mensagem: {e}")
-            break
+            print(f"erro em um dos canais especificos: {e}")
+            if channel:
+                channel.close()
+            time.sleep(1)
 
-    if sock_udp_sensor:
-        sock_udp_sensor.close()
+# função responsavel por criar os canais de comunicação
+def sensores_receiver():
+    # aqui cria e se conectar a conexão do rabbit
+    connection = None
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    except Exception as e:
+        print("erro na criação da conexão com o Rabbit")
+        if connection:
+            connection.close()
+
+    # para cada um dos tipos de sensores, cria sua propria thread e fila para escuta-lo
+    sensores_type = ["temp", "trafego"]
+    threads_sensor = []
+
+    # criação das threads
+    for type in sensores_type:
+        thread = threading.Thread(
+            target=sensor_receiver,
+            args=(connection, type),
+            daemon=True
+        )
+        thread.start()
+        threads_sensor.append(thread)
+
+    for thread in threads_sensor:
+        thread.join()
+    
+    if connection:
+        connection.close()
+    
