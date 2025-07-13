@@ -1,12 +1,12 @@
 import threading
 from multicast import multicast_periodico, multicast_envio
-from udp_sensores import socket_udp_sensor
+from udp_sensores import sensores_receiver
 from client_handle import server_cliente
 
 def main():
     # Inicia threads
     Thread_udp_sensor = threading.Thread(
-        target=socket_udp_sensor,
+        target=sensores_receiver,
         daemon=True
     )
 

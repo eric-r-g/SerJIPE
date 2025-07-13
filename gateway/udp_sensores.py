@@ -2,6 +2,7 @@ import pika
 import json
 import threading
 import time
+from config import *
 
 from config import *
 from devices_manager import atualizar_device_data
@@ -12,7 +13,16 @@ def callback(ch, method, properties, body):
     # aqui será substituido pelo devido processamento;
     print(body)
 
-def sensor_receiver(connection, queue_type):
+def sensor_receiver(queue_type):
+    # aqui cria e se conectar a conexão do rabbit
+    connection = None
+    try:
+        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    except Exception as e:
+        print("erro na criação da conexão com o Rabbit")
+        if connection:
+            connection.close()
+
     # caso a conexão caia, ele vai tentar se reconectar
     while(True):
         channel = None
@@ -32,27 +42,22 @@ def sensor_receiver(connection, queue_type):
             if channel:
                 channel.close()
             time.sleep(1)
+        except Exception as e:
+            # tratar o erro
+            break
+    if connection:
+        connection.close()
 
 # função responsavel por criar os canais de comunicação
 def sensores_receiver():
-    # aqui cria e se conectar a conexão do rabbit
-    connection = None
-    try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-    except Exception as e:
-        print("erro na criação da conexão com o Rabbit")
-        if connection:
-            connection.close()
-
     # para cada um dos tipos de sensores, cria sua propria thread e fila para escuta-lo
-    sensores_type = ["temp", "trafego"]
     threads_sensor = []
 
     # criação das threads
     for type in sensores_type:
         thread = threading.Thread(
             target=sensor_receiver,
-            args=(connection, type),
+            args=(type),
             daemon=True
         )
         thread.start()
@@ -61,6 +66,5 @@ def sensores_receiver():
     for thread in threads_sensor:
         thread.join()
     
-    if connection:
-        connection.close()
+    
     
