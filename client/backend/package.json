@@ -11,6 +11,8 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "@types/amqplib": "^0.10.7",
+    "amqplib": "^0.10.8",
     "express": "^5.1.0",
     "google-protobuf": "^3.21.4"
   }

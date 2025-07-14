@@ -1,4 +1,5 @@
 import Net from 'net';
+import dgram from 'dgram';
 
 // Enviar mensagem com um socket TCP
 export function sendTCPData(port, data){
@@ -31,4 +32,46 @@ export function sendTCPData(port, data){
             reject("Erro na criação do socket TCP: "+err.message);
         }
     });
+}
+
+export function sendDataMulticast(port, group, data){
+    try{
+        const socket = dgram.createSocket('udp4');
+        socket.setMulticastInterface(group);
+
+        socket.send(data, port, group, (err) =>{
+            if(err) throw err;
+            socket.close();
+        });
+
+    }catch(err){
+        throw err;
+    }
+}
+
+// Retorna um array com todas as mensagens recebidas no tempo
+export function listenToMulticast(port, group, ms){
+    return new Promise((resolve, reject) =>{
+        let devices = [];
+        
+        try{
+            const socket = dgram.createSocket('udp4');
+
+            socket.on('message', (msg) =>{
+                devices.push(msg);
+            })
+
+            socket.bind(port, () =>{
+                socket.addMembership(group);
+
+                setTimeout(() =>{
+                    socket.close();
+                    resolve(devices);
+                }, ms);
+            });
+        }catch(err){
+            reject("Erro na criação do socket UDP:" + err.message);
+        }
+    })
+
 }
