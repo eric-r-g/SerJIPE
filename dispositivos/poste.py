@@ -25,6 +25,7 @@ class Poste:
 
         #Escolhe uma porta TCP aleatória
         self.porta_tcp = random.randint(10000, 20000)
+        self.grpc_endpoint = ip + ":50051"
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -85,52 +86,32 @@ class Poste:
 
                         try:
                             #Desserializa a mensagem
-                            envelope = serjipe_message_pb2.Envelope()
-                            envelope.ParseFromString(data)
-
-                            if envelope.HasField("discover"):
-                                mensagem = serjipe_message_pb2.Discover()
-                                mensagem.CopyFrom(envelope.discover)
-                            else:
-                                #Tratamento
-                                print("erro de comando invalido")
+                            mensagem = serjipe_message_pb2.Discover()
+                            mensagem.ParseFromString(data)
                             
                             #Salva as informações
                             self.gateway_ip = mensagem.ip
-                            self.porta_udp_gateway = mensagem.port_udp_sensor
+                            self.porta_udp_gateway = mensagem.port_multicast
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
-
+                            
                             #Prepara a resposta com informações do dispositivo
                             device_info = serjipe_message_pb2.DeviceInfo(
                                 device_id = self.id_disp,
                                 type = self.tipo,
-                                ip = self.ip,
-                                port = self.porta_tcp,
-                                data = serjipe_message_pb2.DeviceData(
-                                    device_id = self.id_disp,
-                                    status = self.status,
-                                    value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                                    value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
-                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                                )
+                                grpc_endpoint = self.grpc_endpoint,
+                                status = self.status,
+                                value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
+                                value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
                             )
-                            #Cria o envelope de envio
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.device_info.CopyFrom(device_info)
-                            envelopeEnvio.erro = 'SUCESSO'
-                            
 
-                        except Exception as e:
-                            print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.erro = "FALHA"
-                        finally:
+                            #Envio com socket UDP
                             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
+                                response_sock.sendto(device_info.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
                                 
                             print(f"[{self.id_disp}] Registrado no gateway!")
-                            continue
-                        
+                            
+                        except Exception as e:
+                            print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
 
                     except socket.timeout:
                         #Timeout - continua ouvindo
