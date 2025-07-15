@@ -1,5 +1,5 @@
 // Isso é tão direto ao ponto que talvez seja desnecessária uma classe separada, qualquer coisa dps mudo
-class DeviceList{
+export class DeviceList{
     list;
     constructor(){
         this.list = new Map();
