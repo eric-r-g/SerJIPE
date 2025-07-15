@@ -14,8 +14,8 @@ message DeviceInfo {
 }
 
 message Command {
-    string action = 2;               // "LIGAR", "DESLIGAR", etc.
-    string parameter = 3;            // "74%", "15" (segundos)
+    string action = 1;               // "LIGAR", "DESLIGAR", etc.
+    string parameter = 2;            // "74%", "15" (segundos)
 }
 
 message Discover {
