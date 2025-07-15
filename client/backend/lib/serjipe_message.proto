@@ -1,45 +1,26 @@
 syntax = "proto3";
 
-message DeviceData {
-    string device_id = 1;
-    string status = 2;     // ex: "ON", "OFF", "ERROR"
-    repeated string value_name = 3;  // ex:  {temperatura, tempo de espera}
-    repeated string value = 4;      // ex: {25.5 , 5s}
-    string timestamp = 5;   // somente para sensoriais
+service ControleDispositivosService {
+    rpc EnviarComando (Command) returns (DeviceInfo) {}
 }
 
 message DeviceInfo {
-    string device_id = 1;
-    string type = 2;      // "camera", "streetlight", etc.
-    string ip = 3;
-    int32 port = 4;
-    DeviceData data = 5;
+    string device_id = 1;            //  "LIX_1234
+    string type = 2;                 //  "sensor", "atuador"
+    string grpc_endpoint = 3;        //  "localhost:50051"
+    string status = 4;               //  "ON", "OFF", "ERROR"
+    repeated string value_name = 5;  //  "{temperatura, tempo de espera}"
+    repeated string value = 6;       //  "{25.5 , 5s}"
 }
 
 message Command {
-    string device_id = 1;
-    string action = 2;    // "TURN_ON", "SET_RESOLUTION", "MULTICAST", etc.
-    string parameter = 3; // "1920x1080", "15" (segundos)
+    string action = 2;               // "LIGAR", "DESLIGAR", etc.
+    string parameter = 3;            // "74%", "15" (segundos)
 }
 
 message Discover {
-    string ip = 1;
-    int32 port_multicast = 2;
-    int32 port_udp_sensor = 3;
-}
-
-message ListarDispositivos {
-    string amount = 1;
-    repeated DeviceInfo devices = 2;
-}
-
-message Envelope{
-    oneof carga{
-        Discover discover = 1;
-        Command command = 2;
-        DeviceData device_data = 3;
-        DeviceInfo device_info = 4;
-        ListarDispositivos listar_dispositivos = 5;
-    }
-    string erro = 6;
+    string ip = 1;                   // "192.68.70.123"
+    int32 port_multicast = 2;        // "5000"
+    repeated string queue_type = 3;  // "{temperatura, trafego}"
+    repeated string queue_name = 4;  // "{temp, traf}"
 }
