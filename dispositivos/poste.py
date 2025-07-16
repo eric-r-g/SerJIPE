@@ -6,6 +6,10 @@ import random
 from datetime import datetime   #Obter data/hora atual
 import uuid     #Gerar id's únicos
 import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
+import serjipe_message_pb2_grpc
+from concurrent import futures  #Utilização de threads
+import grpc
+import logging
 
 class Poste:
     def __init__(self): #Inicialização do dispositivo
@@ -17,7 +21,7 @@ class Poste:
         #Gera um ID único para o dispositivo
         self.id_disp = f"P-{str(uuid.uuid4())[:8]}"
 
-        self.tipo = "poste"
+        self.type = "poste"
 
         self.status = "OFF"
 
@@ -25,7 +29,7 @@ class Poste:
 
         #Escolhe uma porta TCP aleatória
         self.porta_tcp = random.randint(10000, 20000)
-        self.grpc_endpoint = ip + ":50051"
+        self.grpc_endpoint = self.ip + ":50051"
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -97,7 +101,7 @@ class Poste:
                             #Prepara a resposta com informações do dispositivo
                             device_info = serjipe_message_pb2.DeviceInfo(
                                 device_id = self.id_disp,
-                                type = self.tipo,
+                                type = self.type,
                                 grpc_endpoint = self.grpc_endpoint,
                                 status = self.status,
                                 value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
@@ -138,101 +142,89 @@ class Poste:
             # Espera antes de recriar o socket
             time.sleep(1)
 
-    def servidor_comando_tcp(self): #Servidor para receber comandos do gateway
-        #Socket TCP
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        #Associa o socket ao IP e porta TCP do dispositivo
-        server.bind((self.ip, self.porta_tcp))
+class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosServiceServicer):    #Servidor para comandos via gRPC
+    def __init__(self, poste):
+        self.poste = poste  # Referência ao dispositivo
 
-        # Habilita o socket para aceitar conexões
-        server.listen()
+    def EnviarComando(self, request, context):
+        #Comando no request. Retornar DeviceInfo
+        acao = request.action
+        parametro = request.parameter
 
-        while True:
+        if acao == "DESLIGAR":
+            self.poste.status = "OFF"
+            print(f"[{self.poste.id_disp}] Desligado")
+        elif acao == "LIGAR":
+            self.poste.status = "ON"
+            print(f"[{self.poste.id_disp}] Ligado")
+        elif acao == "MODO_AUTOMATICO":
+            self.poste.automatico = 1
+        elif acao == "MODO_MANUAL":
+            self.poste.automatico = 0
+        elif acao == "ALTERAR_BRILHO":
             try:
-                #Aceita e recebe os dados da conexão
-                conn, endr = server.accept()
-                data = conn.recv(1024)  #Até 1024 bytes
+                self.poste.brilho = int(parametro)
+            except ValueError:
+                print("Parâmetro inválido para brilho")
+            
+        #Atualizar o estado no modo automatico
+        if(self.poste.automatico):
+            hora = datetime.now().hour
+            if(hora >= 18 or hora <= 6):
+                self.poste.status = "ON"
+            else:
+                self.poste.status = "OFF"
 
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.ParseFromString(data)
+        #Atualizar consumo
+        if(self.poste.status == "ON"):
+            self.poste.consumo_medio = (self.poste.brilho/100)*0.7
+        else:
+            self.consumo_medio = 0
 
-                envelopeEnvio = serjipe_message_pb2.Envelope()
-                envelopeEnvio.erro = 'SUCESSO'
+        #Envio de DeviceInfo
+        device_info = serjipe_message_pb2.DeviceInfo(
+            device_id = self.poste.id_disp,
+            type = self.poste.type,
+            grpc_endpoint = self.poste.grpc_endpoint,
+            status = self.poste.status,
+            value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
+            value = [str(self.poste.brilho), str(self.poste.automatico), f"{self.poste.consumo_medio:.1f}"],
+        )
 
-                if envelope.HasField("command"):
-                    command = envelope.command
-                else:
-                    #Tratamento
-                    raise Exception("erro de comando invalido")
+        return device_info
 
-                #Verifica se é para esse dispositivo
-                if command.device_id == self.id_disp:
-                    #Processa a solicitação
-                    if command.action == "DESLIGAR":
-                        self.status = "OFF"
-                        print(f"[{self.id_disp}] Desligado")
-                    elif command.action == "LIGAR":
-                        self.status = "ON"
-                        print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "MODO_AUTOMATICO":
-                        self.automatico = 1
-                    elif command.action == "MODO_MANUAL":
-                        self.automatico = 0
-                    elif command.action == "ALTERAR_BRILHO":
-                        try:
-                            novo_brilho = int(command.parameter)
-                            self.brilho = novo_brilho
-                        except ValueError:
-                            envelopeEnvio.erro = "FALHA"
-                            print("Parâmetro inválido para brilho")
+def serve(poste):    #Inicia o servidor grpc
+    port = "50051"
+    
+    #Utiliza um pool de threads para as requisições
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    
+    # Registra a implementação do serviço ControleDispositivosService no servidor.
+    serjipe_message_pb2_grpc.add_ControleDispositivosServiceServicer_to_server(ControleDispositivosService(poste), server)
+    
+    #Configuração da porta de escuta
+    server.add_insecure_port("[::]:" + port)
 
-                    #Atualizar consumo
-                    if(self.status == "ON"):
-                        self.consumo_medio = (self.brilho/100)*0.7
-                    else:
-                        self.consumo_medio = 0
-                        
-                    #Atualizar o estado
-                    if(self.automatico):
-                        hora = datetime.now().hour
-                        if(hora >= 18 or hora <= 6):
-                            self.status = "ON"
-                        else:
-                            self.status = "OFF"
-                    
-                    #Confirmação de recebimento (envio de DeviceData)
-                    device_data = serjipe_message_pb2.DeviceData(
-                        device_id = self.id_disp,
-                        status = self.status,
-                        value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                        value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
-                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                    )
-
-                    envelopeEnvio.device_data.CopyFrom(device_data)
-                    
-                    conn.send(envelopeEnvio.SerializeToString())
-
-            except Exception as e:
-                print(f"Erro no servidor TCP: {str(e)}")
-
-            finally:
-                if ('conn' in locals()):
-                    #Fecha a conexão
-                    conn.close()
-
-    def run(self): #Inicia as funcionalidades em threads separadas
-        #Escuta por pedidos de descoberta multicast
-        threading.Thread(target=self.descoberta_multicast, daemon=True).start()
-
-        #Servidor TCP para comandos
-        threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
-
-        #Loop que mantem o programa rodando
-        while True:
-            time.sleep(1)   #Evitar que termine imediatamente
+    server.start()
+    print("Servidor iniciado em " + port)
+    return server
 
 if __name__ == "__main__":
     poste = Poste()
-    poste.run()
+
+    #Inicia thread de descoberta multicast
+    threading.Thread(target=poste.descoberta_multicast, daemon=True).start()
+    
+    #Inicializa o sistema de logging(registro de eventos)
+    logging.basicConfig()
+
+    server = serve(poste)
+
+    #Loop que mantem o programa rodando
+    try:
+        while True:
+            time.sleep(3600) 
+    except KeyboardInterrupt:
+        print("Desligando dispositivo")
+        server.stop(0)
