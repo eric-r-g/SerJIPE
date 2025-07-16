@@ -11,28 +11,34 @@ const packageDefinition = protoLoader.loadSync("serjipe_message.proto",{
 
 const serjipe = grpc.loadPackageDefinition(packageDefinition);
 
-async function handleComando(endereco, acao, parametro){
+function callback(err, retorno){
+    if (err) {
+        // tratamento de erro devido
+    }
+    else {
+        // atualiza com o deviceInfo devido
+    }
+}
+
+function handleComando(endereco, acao, parametro, callback){
     const client = new serjipe.ControleDispositivosService(
-    endereco,
-    grpc.credentials.createInsecure()
+        endereco,
+        grpc.credentials.createInsecure()
     );
 
-    try{
-        const command = {
-            action: acao,
-            parameter: parametro
-        }
-        const response = await new Promise((resolve, reject) => {
-            client.EnviarComando(command, (err, retorno) => {
-                if (err) reject(err);
-                else resolve(retorno);
-            });
-        });
-
-        return response;
-    } catch (err) {
-        // lida com o erro
-    } finally {
-        client.close()
+    const command = {
+        action: acao,
+        parameter: parametro
     }
+
+    client.EnviarComando(command, (err, retorno) => {
+        client.close();
+
+        if (err) { 
+            callback(err);
+        }
+        else {
+            callback(null, retorno);
+        }
+    });
 }
