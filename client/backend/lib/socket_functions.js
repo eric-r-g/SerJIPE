@@ -37,12 +37,16 @@ export function sendTCPData(port, data){
 export function sendDataMulticast(port, group, data){
     try{
         const socket = dgram.createSocket('udp4');
-        socket.setMulticastInterface(group);
+        socket.bind(() =>{
+            //socket.setMulticastInterface(group); // não sei por que isso não foi necessário
 
-        socket.send(data, port, group, (err) =>{
-            if(err) throw err;
-            socket.close();
-        });
+            socket.send(data, port, group, (err) =>{
+                if(err) throw err;
+                socket.close();
+            });
+        })
+
+
 
     }catch(err){
         throw err;

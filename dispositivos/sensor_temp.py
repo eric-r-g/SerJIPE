@@ -134,10 +134,11 @@ class SensorTemperatura:
         
         try:
             #Conecta ao RabbitMQ
-            connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.broker_info['host']))
+            credentials = pika.PlainCredentials('guest', 'guest')
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.broker_info['host'], credentials=credentials))
             channel = connection.channel()
-            queue_name = self.broker_info['queue']
-            channel.queue_declare(queue=queue_name)
+            queue_name = self.broker_info['queue'][0]
+            channel.queue_declare(queue=queue_name, durable=True)
 
             while True:
                 if self.status == "ON":

@@ -11,6 +11,8 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
+    "@grpc/grpc-js": "^1.13.4",
+    "@grpc/proto-loader": "^0.7.15",
     "@types/amqplib": "^0.10.7",
     "amqplib": "^0.10.8",
     "express": "^5.1.0",

@@ -7,7 +7,7 @@ export class DeviceList{
 
     // Também atualiza
     addDevice(device){
-        this.list.set(device.id, device);
+        this.list.set(device.device_id, device);
     }
 
     removeDevice(device){
@@ -19,10 +19,10 @@ export class DeviceList{
     }
 
     getDevices(){
-        return this.list.values();
+        return Array.from(this.list.values());
     }
 
-    getDevice(deviceId){
-        return this.list.get(deviceId);
+    getDevice(device_id){
+        return this.list.get(device_id);
     }
 }

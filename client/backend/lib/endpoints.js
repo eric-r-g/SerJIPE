@@ -1,5 +1,5 @@
 // Função pra organizar os endpoints num lugar separado e deixar um pouco mais legível
-import { handleComando } from "./handlerComando";
+import { handleComando } from "./handlerComando.js";
 export function setEndpoints(app){
     app.server.get('/api/dispositivos', (req, res) =>{
         try{
@@ -8,6 +8,9 @@ export function setEndpoints(app){
                 action: "LISTAR",
                 parameter: ""
             }
+
+            console.log("Devices: ");
+            console.log(app.devicesList.getDevices())
             res.send(JSON.stringify(
                 {
                     devices: app.devicesList.getDevices()
@@ -35,7 +38,7 @@ export function setEndpoints(app){
                 }
                 else {
                     // aqui vai ser adicionado o objeto
-                    app.devicesList.addDevice();
+                    app.devicesList.addDevice(retorno);
                 }
                 
             });

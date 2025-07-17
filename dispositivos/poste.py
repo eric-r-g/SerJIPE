@@ -97,6 +97,7 @@ class Poste:
                             self.gateway_ip = mensagem_gateway.get("gateway_ip")
                             self.porta_resposta_gateway = mensagem_gateway.get("gateway_port")
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
+                            print(mensagem_gateway)
                             
                             #Prepara a resposta com informações do dispositivo
                             resposta_json = {

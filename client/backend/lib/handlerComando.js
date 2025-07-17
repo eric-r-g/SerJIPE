@@ -1,12 +1,11 @@
-const grpc = require('@grpc/grpc-js');
-const protoLoader = require('@grpc/proto-loader');
-
+import grpc from '@grpc/grpc-js';
+import protoLoader from '@grpc/proto-loader';
 
 const packageDefinition = protoLoader.loadSync("serjipe_message.proto",{
-  keepCase: true,
-  longs: Number,        
-  enums: String,        
-  defaults: true,      
+    keepCase: true,
+    longs: Number,        
+    enums: String,        
+    defaults: true,      
 })
 
 const serjipe = grpc.loadPackageDefinition(packageDefinition);
