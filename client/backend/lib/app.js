@@ -10,29 +10,9 @@ function createConnection(app){
     return new Promise((resolve, reject) =>{
         amqp.connect('amqp://localhost')
         .then((connection) =>{
-            // Eventos da conexão
-
-            // Se a conexão cair, tentar reconectar
-            // Uma possibilidade pra organizar isso aqui melhor é fazer a função de reconectar como um método, ai deixa o server.js chamar ele e definir o tempo de reconexão
-            connection.on('close', () =>{
-                app.channels = [];
-                setTimeout(() =>{ 
-                    createConnection()
-                    .then((connection) =>{
-                        app.connection = connection;
-                        app.channels = createQueues(app.connection, sensoresType);
-                    })
-                    .catch((err) => { throw err }); // No momento ele só tenta se reconectar uma vez, se quiser tentar dnv fazer nesse catch, ou setar um interval e limpar dps(no catch tbm)
-                }, 3000);
-            })
-            connection.on('error', (err) =>{
-                app.channels = [];
-                throw err;
-            })
-
             resolve(connection);
         })
-        .catch((err) => {throw err});
+        .catch((err) => {reject(err)});
     });
 }
 function createQueues(connection, types, app){
@@ -78,6 +58,7 @@ class App {
     localIp;
     connection;
     channels;
+    reconnectionInterval;
 
     constructor(){
         // Criação dos objetos iniciais
@@ -85,17 +66,58 @@ class App {
         this.devicesList = new DeviceList();
         this.server = express();
 
-        try{
-            getLocalIp().then((ip) => {this.localIp = ip}).catch((err) => {throw err})// temp
-            createConnection(this)
-            .then((connection) =>{
-                this.connection = connection;
-                this.channels = createQueues(this.connection, sensoresType, this);
+        getLocalIp().then((ip) => {this.localIp = ip}).catch((err) => {throw err})// temp
+            
+        createConnection(this)
+        .then((connection) =>{
+            this.connection = connection;
+            this.channels = createQueues(this.connection, sensoresType, this);
+
+            // Eventos da conexão
+
+            // Se a conexão cair, tentar reconectar
+            // Uma possibilidade pra organizar isso aqui melhor é fazer a função de reconectar como um método, ai deixa o server.js chamar ele e definir o tempo de reconexão
+            connection.on('close', () =>{
+                console.log("Conexão com o RabbitMQ foi fechada, tentando reconectar em 5 segundos");
+                this.channels = [];
+                this.reconnectionInterval = setInterval(() =>{
+                    createConnection()
+                    .then((connection) =>{
+                        this.connection = connection;
+                        this.channels = createQueues(this.connection, sensoresType, this);
+
+                        clearInterval(this.reconnectionInterval);
+                    })
+                    .catch(() =>{
+                        console.log("Conexão com o RabbitMQ falhou, tentando novamente em 5 segundos");
+                    })
+                }, 5000);
             })
-            .catch((err) => { throw err });
-        }catch(err){
-            throw err;
-        }
+
+            connection.on('error', (err) =>{
+                this.channels = [];
+                throw err;
+            })
+        })
+        .catch((err) => {
+            if(err.code == "ECONNREFUSED"){
+                console.log("Conexão com o RabbitMQ falhou, tentando novamente em 5 segundos");
+                this.reconnectionInterval = setInterval(() =>{
+                    createConnection()
+                    .then((connection) =>{
+                        this.connection = connection;
+                        this.channels = createQueues(this.connection, sensoresType, this);
+
+                        clearInterval(this.reconnectionInterval);
+                    })
+                    .catch(() =>{
+                        console.log("Conexão com o RabbitMQ falhou, tentando novamente em 5 segundos");
+                    })
+                }, 5000);
+            }else{
+                throw err;  
+            } 
+        });
 
 
 

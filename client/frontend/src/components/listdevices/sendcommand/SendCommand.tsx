@@ -1,15 +1,15 @@
-import type { Command, DeviceData, DeviceInfo } from "../../../lib/interfaces.ts";
-import axios from "axios";
-import { getAxiosConfig } from "../../../lib/utils.ts";
+//import type { Command, DeviceInfo } from "../../../lib/interfaces.ts";
+//import axios from "axios";
+//import { getAxiosConfig } from "../../../lib/utils.ts";
 
-interface SendCommandProps{
+/*interface SendCommandProps{
     device: DeviceInfo,
-    updateDevice: (device: DeviceData) => void;
+    updateDevice: (device: DeviceInfo) => void;
     updateErrorMsg: (newErrorMsg: string) => void;
-}
-function SendCommand(props: SendCommandProps){
+}*/
+function SendCommand(){
 
-    function enviarComando(action: string, deviceId: string, parameter: string){
+    /*function enviarComando(action: string, deviceId: string, parameter: string){
         let data = {
             action: action,
             deviceId: deviceId,
@@ -18,15 +18,14 @@ function SendCommand(props: SendCommandProps){
 
         axios.request(getAxiosConfig(data, '/api/comando', 'POST'))
         .then((response) =>{
-            let deviceData = {
-                deviceId: response.data.deviceId,
+            let deviceInfo = {
+                device_id: response.data.deviceId,
                 status: response.data.status,
-                timestamp: response.data.timestamp,
-                valueNameList: response.data.valueNameList,
-                valueList: response.data.valueList
-            } as DeviceData;
+                value_name: response.data.valueNameList,
+                value: response.data.valueList
+            } as DeviceInfo;*/
 
-            if(props.device.type == 'sensor_trafego'){
+            /*if(props.device.type == 'sensor_trafego'){
                 let indice_formatar = deviceData.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
                 let formatar = deviceData.valueList[indice_formatar];
                 deviceData.valueList[indice_formatar] = Number(formatar).toFixed(1);
@@ -34,14 +33,14 @@ function SendCommand(props: SendCommandProps){
                 let indice_formatar = deviceData.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
                 let formatar = deviceData.valueList[indice_formatar];
                 deviceData.valueList[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
-            }
+            }*/
 
-            props.updateDevice(deviceData);
+            /*props.updateDevice(deviceInfo);
         })
         .catch((err) => props.updateErrorMsg("O servidor respondeu o comando com: "+err.response.data));
-    }
+    }*/
 
-    if(props.device.type == 'sensor_temperatura' || props.device.type == 'sensor_trafego'){
+    /*if(props.device.type == 'sensor_temperatura' || props.device.type == 'sensor_trafego'){
         let interval = props.device.data.valueList[props.device.data.valueNameList.findIndex((value) =>{ return value.toLowerCase().includes('intervalo')})];
 
         return(
@@ -97,7 +96,13 @@ function SendCommand(props: SendCommandProps){
                 <button onClick={() => enviarComando('GERAR_RELATORIO', props.device.deviceId, '')}>Gerar relatório</button>
             </div>
         )
-    }
+    }*/
+
+    return(
+        <div>
+            <p>Nenhum comando encontrado</p>
+        </div>
+    )
 }
 
 export default SendCommand;

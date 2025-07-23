@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import './App.css'
 import ListDevices from './components/listdevices/ListDevices.tsx'
-import type { DeviceData, DeviceInfo } from './lib/interfaces.ts';
+import type { DeviceInfo } from './lib/interfaces.ts';
 import logo from '/JIPElogo.png';
 import axios from 'axios';
 import { getAxiosConfig } from './lib/utils.ts';
@@ -24,12 +24,12 @@ function App() {
     axios.request(getAxiosConfig(null, '/api/dispositivos', 'GET'))
     .then((response) =>{
         updateWarning(`Ultima atualização em ${new Date().toLocaleString()}`);
-        let list = (response.data.devicesList) as Array<DeviceInfo>;
+        let list = (response.data.devices) as Array<DeviceInfo>;
 
         // Formatar e organizar a lista antes de atualizar
-        list.sort((a, b) => a.port - b.port);
-        list.map((dispositivo) =>{
-            if(dispositivo.type == 'sensor_trafego'){
+        //list.sort((a, b) => a.port - b.port);
+        list = list.map((dispositivo) =>{
+            /*if(dispositivo.type == 'sensor_trafego'){
                 let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
                 let formatar = dispositivo.data.valueList[indice_formatar];
                 dispositivo.data.valueList[indice_formatar] = Number(formatar).toFixed(1);
@@ -37,11 +37,11 @@ function App() {
                 let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
                 let formatar = dispositivo.data.valueList[indice_formatar];
                 dispositivo.data.valueList[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
-            }
+            }*/
 
             return dispositivo;
         })
-        updateDevices(response.data.devicesList);
+        updateDevices(list);
     })
     .catch((err) => setErrorMsg(`O servidor respondeu a requisição em ${new Date().toLocaleString()} com: ${err.response.data}`));
   }
@@ -52,10 +52,10 @@ function App() {
   }
 
   // Update single
-  function updateDevice(deviceData: DeviceData){
+  function updateDevice(deviceInfo: DeviceInfo){
     let newDevices = [...devices];
-    let index = newDevices.findIndex((deviceTofind) =>{ return deviceTofind.deviceId == deviceData.deviceId});
-    newDevices[index].data = deviceData;
+    let index = newDevices.findIndex((deviceTofind) =>{ return deviceTofind.device_id == deviceInfo.device_id});
+    newDevices[index] = deviceInfo;
 
     setDevices(newDevices);
   }

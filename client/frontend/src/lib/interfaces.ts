@@ -1,17 +1,8 @@
 export interface DeviceInfo{
-    deviceId: string,
-    type: string,
-    ip: string,
-    port: number,
-    data: DeviceData
-}
-
-export interface DeviceData{
-    deviceId: string,
+    device_id: string,
     status: string,
-    valueNameList: Array<string>,
-    valueList: Array<string>,
-    timestamp: string
+    value_name: Array<string>,
+    value: Array<string>
 }
 
 export interface Command{

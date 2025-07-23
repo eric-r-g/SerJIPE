@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import './listdevices.css';
-import type { DeviceData, DeviceInfo } from "../../lib/interfaces";
+import type { DeviceInfo } from "../../lib/interfaces";
 import SendCommand from "./sendcommand/SendCommand";
 
 interface ListDevicesProps{
     devices: Array<DeviceInfo> // any tem que ser mudado pra device dps
-    updateDevice: (device: DeviceData) => void;
+    updateDevice: (device: DeviceInfo) => void;
     updateErrorMsg: (newErrorMsg: string) => void;
 }
 
@@ -23,26 +23,23 @@ function ListDevices(props: ListDevicesProps){
                     <div className="devices-item" key={`device${index}`}>
                         <div className="device-header-wrapper">
                             <header className="device-header">
-                                <p>Dispositivo {device.deviceId}</p>
+                                <p>Dispositivo {device.device_id}</p>
                             </header>
                         </div>
                         <div className="device-info-wrapper">
                             <div><h3>Informações do dispositivo</h3>
                                 <div>
-                                    <p>ID: {device.deviceId}</p>
-                                    <p>Tipo: {device.type}</p>
-                                    <p>IP: {device.ip}</p>
-                                    <p>Porta: {device.port}</p>
+                                    <p>ID: {device.device_id}</p>
+                                    <p>Status: {device.status}</p>
                                 </div>
                             </div>
-                            <div><h3>Ultima leitura - {device.data.timestamp}</h3>
+                            <div><h3>Ultima leitura</h3>
                                 <div>
-                                    <p>{device.data.status}</p>
                                     {
-                                        device.data.valueNameList.map((valueName, index) =>{
+                                        device.value_name.map((valueName, index) =>{
                                             return(
-                                                <p id={`valueData${device.deviceId}-${index}`}>
-                                                    {valueName}: {device.data.valueList[index]}
+                                                <p id={`valueData${device.device_id}-${index}`}>
+                                                    {valueName}: {device.value[index]}
                                                 </p>
                                             )
                                         })
@@ -50,7 +47,7 @@ function ListDevices(props: ListDevicesProps){
                                 </div>
                             </div>
                             <div><h3>Enviar comando</h3>
-                                <SendCommand device={device} updateDevice={props.updateDevice} updateErrorMsg={props.updateErrorMsg}/>
+                                <SendCommand /*device={device} updateDevice={props.updateDevice} updateErrorMsg={props.updateErrorMsg}*//>
                             </div>
                         </div>
                     </div>
