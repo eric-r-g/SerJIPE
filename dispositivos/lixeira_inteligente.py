@@ -6,6 +6,11 @@ import random
 from datetime import datetime   #Obter data/hora atual
 import uuid     #Gerar id's únicos
 import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
+import serjipe_message_pb2_grpc
+from concurrent import futures  #Utilização de threads
+import grpc
+import logging
+import json  #Usaremos JSON para a descoberta multicast
 
 class Lixeira:
     def __init__(self): #Inicialização do dispositivo
@@ -25,6 +30,7 @@ class Lixeira:
 
         #Escolhe uma porta TCP aleatória
         self.porta_tcp = random.randint(10000, 20000)
+        self.grpc_endpoint = self.ip + ":50051"
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -32,7 +38,7 @@ class Lixeira:
 
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
-        self.porta_udp_gateway = 0
+        self.porta_resposta_gateway = 0
 
         print(f"Lixeira {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
@@ -84,53 +90,32 @@ class Lixeira:
                         data, endr = s.recvfrom(1024)
 
                         try:
-                            #Desserializa a mensagem
-                            envelope = serjipe_message_pb2.Envelope()
-                            envelope.ParseFromString(data)
+                            #Decodifica a mensagem JSON que o gateway enviou.
+                            mensagem_gateway = json.loads(data.decode('utf-8'))
 
-                            if envelope.HasField("discover"):
-                                mensagem = serjipe_message_pb2.Discover()
-                                mensagem.CopyFrom(envelope.discover)
-                            else:
-                                #Tratamento
-                                print("erro de comando invalido")
-                            
-                            #Salva as informações
-                            self.gateway_ip = mensagem.ip
-                            self.porta_udp_gateway = mensagem.port_udp_sensor
+                            #Guarda as informações
+                            self.gateway_ip = mensagem_gateway.get("gateway_ip")
+                            self.porta_resposta_gateway = mensagem_gateway.get("gateway_port")
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
-
-                            #Prepara a resposta com informações do dispositivo
-                            device_info = serjipe_message_pb2.DeviceInfo(
-                                device_id = self.id_disp,
-                                type = self.tipo,
-                                ip = self.ip,
-                                port = self.porta_tcp,
-                                data = serjipe_message_pb2.DeviceData(
-                                    device_id = self.id_disp,
-                                    status = self.status,
-                                    value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
-                                    value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"],
-                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                                )
-                            )
-                            #Cria o envelope de envio
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.device_info.CopyFrom(device_info)
-                            envelopeEnvio.erro = 'SUCESSO'
                             
+                            #Prepara a resposta com informações do dispositivo
+                            resposta_json = {
+                                "device_id": self.id_disp,
+                                "type": self.type,
+                                "grpc_endpoint": self.grpc_endpoint,
+                                "status": self.status,
+                                "value_name": ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
+                                "value": [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"]
+                            }
 
-                        except Exception as e:
-                            print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.erro = "FALHA"
-                        finally:
+                            #Envia a resposta de volta para o Gateway
                             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
+                                response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, self.porta_resposta_gateway))
                                 
                             print(f"[{self.id_disp}] Registrado no gateway!")
-                            continue
-                        
+                            
+                        except Exception as e:
+                            print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
 
                     except socket.timeout:
                         #Timeout - continua ouvindo
@@ -157,86 +142,76 @@ class Lixeira:
             # Espera antes de recriar o socket
             time.sleep(1)
 
-    def servidor_comando_tcp(self): #Servidor para receber comandos do gateway
-        #Socket TCP
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        #Associa o socket ao IP e porta TCP do dispositivo
-        server.bind((self.ip, self.porta_tcp))
+class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosServiceServicer):    #Servidor para comandos via gRPC
+    def __init__(self, disp):
+        self.disp = disp  # Referência ao dispositivo
 
-        # Habilita o socket para aceitar conexões
-        server.listen()
+    def EnviarComando(self, request, context):
+        #Comando no request. Retornar DeviceInfo
+        acao = request.action
+        parametro = request.parameter
 
-        while True:
-            try:
-                #Aceita e recebe os dados da conexão
-                conn, endr = server.accept()
-                data = conn.recv(1024)  #Até 1024 bytes
+        if acao == "DESLIGAR":
+            self.disp.status = "OFF"
+            print(f"[{self.disp.id_disp}] Desligado")
+        elif acao == "LIGAR":
+            self.disp.status = "ON"
+            print(f"[{self.disp.id_disp}] Ligado")
+        elif acao == "GERAR_RELATORIO":
+            variacao1 = random.randint(-10, 10)
+            self.reciclavel += variacao1
+            self.reciclavel = max(20, min(self.reciclavel, 80))
+            variacao2 = random.randint(-5, 5)
+            self.organico += variacao2
+            self.organico = max(5, min(self.organico, 50))
+            self.eletronico = 100 - self.reciclavel - self.organico
+            if self.eletronico < 0:
+                self.eletronico = 0
 
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.ParseFromString(data)
+        #Envio de DeviceInfo
+        device_info = serjipe_message_pb2.DeviceInfo(
+            device_id = self.disp.id_disp,
+            type = self.disp.type,
+            grpc_endpoint = self.disp.grpc_endpoint,
+            status = self.disp.status,
+            value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
+            value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"]
+        )
 
-                envelopeEnvio = serjipe_message_pb2.Envelope()
-                envelopeEnvio.erro = 'SUCESSO'
+        return device_info
 
-                if envelope.HasField("command"):
-                    command = envelope.command
-                else:
-                    #Tratamento
-                    raise Exception("erro de comando invalido")
+def serve(disp):    #Inicia o servidor grpc
+    port = "50051"
+    
+    #Utiliza um pool de threads para as requisições
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    
+    # Registra a implementação do serviço ControleDispositivosService no servidor.
+    serjipe_message_pb2_grpc.add_ControleDispositivosServiceServicer_to_server(ControleDispositivosService(disp), server)
+    
+    #Configuração da porta de escuta
+    server.add_insecure_port("[::]:" + port)
 
-                #Verifica se é para esse dispositivo
-                if command.device_id == self.id_disp:
-                    #Processa a solicitação
-                    if command.action == "DESLIGAR":
-                        self.status = "OFF"
-                        print(f"[{self.id_disp}] Desligado")
-                    elif command.action == "LIGAR":
-                        self.status = "ON"
-                        print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "GERAR_RELATORIO":
-                        variacao1 = random.randint(-10, 10)
-                        self.reciclavel += variacao1
-                        self.reciclavel = max(20, min(self.reciclavel, 80))
-                        variacao2 = random.randint(-5, 5)
-                        self.organico += variacao2
-                        self.organico = max(5, min(self.organico, 50))
-                        self.eletronico = 100 - self.reciclavel - self.organico
-                        if self.eletronico < 0:
-                            self.eletronico = 0
-                    
-                    #Confirmação de recebimento (envio de DeviceData)
-                    device_data = serjipe_message_pb2.DeviceData(
-                        device_id = self.id_disp,
-                        status = self.status,
-                        value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
-                        value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"],
-                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                    )
-
-                    envelopeEnvio.device_data.CopyFrom(device_data)
-                    
-                    conn.send(envelopeEnvio.SerializeToString())
-
-            except Exception as e:
-                print(f"Erro no servidor TCP: {str(e)}")
-
-            finally:
-                if ('conn' in locals()):
-                    #Fecha a conexão
-                    conn.close()
-
-    def run(self): #Inicia as funcionalidades em threads separadas
-        #Escuta por pedidos de descoberta multicast
-        threading.Thread(target=self.descoberta_multicast, daemon=True).start()
-
-        #Servidor TCP para comandos
-        threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
-
-        #Loop que mantem o programa rodando
-        while True:
-            time.sleep(1)   #Evitar que termine imediatamente
+    server.start()
+    print("Servidor iniciado em " + port)
+    return server
 
 if __name__ == "__main__":
-    lixeira = Lixeira()
-    lixeira.run()
+    disp = Lixeira()
+
+    #Inicia thread de descoberta multicast
+    threading.Thread(target=disp.descoberta_multicast, daemon=True).start()
+    
+    #Inicializa o sistema de logging(registro de eventos)
+    logging.basicConfig()
+
+    server = serve(disp)
+
+    #Loop que mantem o programa rodando
+    try:
+        while True:
+            time.sleep(3600) 
+    except KeyboardInterrupt:
+        print("Desligando dispositivo")
+        server.stop(0)
