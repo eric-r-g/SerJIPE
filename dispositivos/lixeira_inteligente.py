@@ -27,9 +27,6 @@ class Lixeira:
         self.status = "ON"
 
         self.ip = self.obter_ip_local()
-
-        #Escolhe uma porta TCP aleatória
-        self.porta_tcp = random.randint(10000, 20000)
         
         # Escolhe uma porta para o gRPC aleatória
         self.porta_grpc = random.randint(50052, 60000)
@@ -43,7 +40,7 @@ class Lixeira:
         self.gateway_ip = None
         self.porta_resposta_gateway = 0
 
-        print(f"Lixeira {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Lixeira {self.id_disp} iniciado em {self.ip}")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
