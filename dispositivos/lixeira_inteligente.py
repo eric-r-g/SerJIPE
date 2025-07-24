@@ -160,14 +160,14 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
             print(f"[{self.disp.id_disp}] Ligado")
         elif acao == "GERAR_RELATORIO":
             variacao1 = random.randint(-10, 10)
-            self.reciclavel += variacao1
-            self.reciclavel = max(20, min(self.reciclavel, 80))
+            self.disp.reciclavel += variacao1
+            self.disp.reciclavel = max(20, min(self.disp.reciclavel, 80))
             variacao2 = random.randint(-5, 5)
-            self.organico += variacao2
-            self.organico = max(5, min(self.organico, 50))
-            self.eletronico = 100 - self.reciclavel - self.organico
-            if self.eletronico < 0:
-                self.eletronico = 0
+            self.disp.organico += variacao2
+            self.disp.organico = max(5, min(self.disp.organico, 50))
+            self.disp.eletronico = 100 - self.disp.reciclavel - self.disp.organico
+            if self.disp.eletronico < 0:
+                self.disp.eletronico = 0
 
         #Envio de DeviceInfo
         device_info = serjipe_message_pb2.DeviceInfo(
@@ -176,7 +176,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
             grpc_endpoint = self.disp.grpc_endpoint,
             status = self.disp.status,
             value_name = ["Reciclável (%)", "Orgânico (%)", "Eletrônico (%)"],
-            value = [f"{self.reciclavel:.1f}", f"{self.organico:.1f}", f"{self.eletronico:.1f}"]
+            value = [f"{self.disp.reciclavel:.1f}", f"{self.disp.organico:.1f}", f"{self.disp.eletronico:.1f}"]
         )
 
         return device_info
