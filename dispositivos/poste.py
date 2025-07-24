@@ -28,8 +28,6 @@ class Poste:
 
         self.ip = self.obter_ip_local()
 
-        #Escolhe uma porta TCP aleatória
-        self.porta_tcp = random.randint(10000, 20000)
         # Escolhe uma porta para o gRPC aleatória
         self.porta_grpc = random.randint(50052, 60000)
         self.grpc_endpoint = f"{self.ip}:{self.porta_grpc}"
@@ -42,7 +40,7 @@ class Poste:
         self.gateway_ip = None
         self.porta_udp_gateway = 0
 
-        print(f"Poste {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Poste {self.id_disp} iniciado!")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
