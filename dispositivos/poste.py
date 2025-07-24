@@ -10,7 +10,6 @@ import serjipe_message_pb2_grpc
 from concurrent import futures  #Utilização de threads
 import grpc
 import logging
-import json  #Usaremos JSON para a descoberta multicast
 
 class Poste:
     def __init__(self): #Inicialização do dispositivo
@@ -30,7 +29,9 @@ class Poste:
 
         #Escolhe uma porta TCP aleatória
         self.porta_tcp = random.randint(10000, 20000)
-        self.grpc_endpoint = self.ip + ":50051"
+        # Escolhe uma porta para o gRPC aleatória
+        self.porta_grpc = random.randint(50052, 60000)
+        self.grpc_endpoint = f"{self.ip}:{self.porta_grpc}"
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -38,7 +39,7 @@ class Poste:
 
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
-        self.porta_resposta_gateway = 0
+        self.porta_udp_gateway = 0
 
         print(f"Poste {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
@@ -90,28 +91,28 @@ class Poste:
                         data, endr = s.recvfrom(1024)
 
                         try:
-                            #Decodifica a mensagem JSON que o gateway enviou.
-                            mensagem_gateway = json.loads(data.decode('utf-8'))
-
-                            #Guarda as informações
-                            self.gateway_ip = mensagem_gateway.get("gateway_ip")
-                            self.porta_resposta_gateway = mensagem_gateway.get("gateway_port")
+                            #Desserializa a mensagem
+                            mensagem = serjipe_message_pb2.Discover()
+                            mensagem.ParseFromString(data)
+                            
+                            #Salva as informações
+                            self.gateway_ip = mensagem.ip
+                            self.porta_udp_gateway = mensagem.port_multicast
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
-                            print(mensagem_gateway)
                             
                             #Prepara a resposta com informações do dispositivo
-                            resposta_json = {
-                                "device_id": self.id_disp,
-                                "type": self.type,
-                                "grpc_endpoint": self.grpc_endpoint,
-                                "status": self.status,
-                                "value_name": ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                                "value": [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
-                            }
+                            device_info = serjipe_message_pb2.DeviceInfo(
+                                device_id = self.id_disp,
+                                type = self.type,
+                                grpc_endpoint = self.grpc_endpoint,
+                                status = self.status,
+                                value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
+                                value = [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
+                            )
 
-                            #Envia a resposta de volta para o Gateway
+                            #Envio com socket UDP
                             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, self.porta_resposta_gateway))
+                                response_sock.sendto(device_info.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
                                 
                             print(f"[{self.id_disp}] Registrado no gateway!")
                             
@@ -196,7 +197,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
         return device_info
 
 def serve(poste):    #Inicia o servidor grpc
-    port = "50051"
+    port = str(poste.porta_grpc)
     
     #Utiliza um pool de threads para as requisições
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
