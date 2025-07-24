@@ -12,19 +12,19 @@ import grpc
 import logging
 import json  #Usaremos JSON para a descoberta multicast
 
-class Poste:
+class Semaforo:
     def __init__(self): #Inicialização do dispositivo
         #Especificidades
-        self.brilho = 100
-        self.automatico = 0
-        self.consumo_medio = 0
+        self.tempo_verde = 60
+        self.tempo_amarelo = 5
+        self.tempo_vermelho = 60
 
         #Gera um ID único para o dispositivo
-        self.id_disp = f"P-{str(uuid.uuid4())[:8]}"
+        self.id_disp = f"SEM-{str(uuid.uuid4())[:8]}"
 
-        self.type = "poste"
+        self.tipo = "semaforo"
 
-        self.status = "OFF"
+        self.status = "ON"
 
         self.ip = self.obter_ip_local()
 
@@ -40,7 +40,7 @@ class Poste:
         self.gateway_ip = None
         self.porta_resposta_gateway = 0
 
-        print(f"Poste {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Semaforo {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
@@ -97,7 +97,6 @@ class Poste:
                             self.gateway_ip = mensagem_gateway.get("gateway_ip")
                             self.porta_resposta_gateway = mensagem_gateway.get("gateway_port")
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
-                            print(mensagem_gateway)
                             
                             #Prepara a resposta com informações do dispositivo
                             resposta_json = {
@@ -105,8 +104,8 @@ class Poste:
                                 "type": self.type,
                                 "grpc_endpoint": self.grpc_endpoint,
                                 "status": self.status,
-                                "value_name": ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-                                "value": [str(self.brilho), str(self.automatico), f"{self.consumo_medio:.1f}"],
+                                "value_name": ["Tempo verde", "Tempo amarelo", "Tempo vermelho"],
+                                "value": [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)]
                             }
 
                             #Envia a resposta de volta para o Gateway
@@ -145,8 +144,8 @@ class Poste:
 
 
 class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosServiceServicer):    #Servidor para comandos via gRPC
-    def __init__(self, poste):
-        self.poste = poste  # Referência ao dispositivo
+    def __init__(self, disp):
+        self.disp = disp  # Referência ao dispositivo
 
     def EnviarComando(self, request, context):
         #Comando no request. Retornar DeviceInfo
@@ -154,55 +153,43 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
         parametro = request.parameter
 
         if acao == "DESLIGAR":
-            self.poste.status = "OFF"
-            print(f"[{self.poste.id_disp}] Desligado")
+            self.disp.status = "OFF"
+            print(f"[{self.disp.id_disp}] Desligado")
         elif acao == "LIGAR":
-            self.poste.status = "ON"
-            print(f"[{self.poste.id_disp}] Ligado")
-        elif acao == "MODO_AUTOMATICO":
-            self.poste.automatico = 1
-        elif acao == "MODO_MANUAL":
-            self.poste.automatico = 0
-        elif acao == "ALTERAR_BRILHO":
-            try:
-                self.poste.brilho = int(parametro)
-            except ValueError:
-                print("Parâmetro inválido para brilho")
-            
-        #Atualizar o estado no modo automatico
-        if(self.poste.automatico):
-            hora = datetime.now().hour
-            if(hora >= 18 or hora <= 6):
-                self.poste.status = "ON"
-            else:
-                self.poste.status = "OFF"
-
-        #Atualizar consumo
-        if(self.poste.status == "ON"):
-            self.poste.consumo_medio = (self.poste.brilho/100)*0.7
-        else:
-            self.consumo_medio = 0
+            self.disp.status = "ON"
+            print(f"[{self.disp.id_disp}] Ligado")
+        elif acao == "AJUSTAR_TEMPO":
+            parametros = parametro.split(' ')
+            if (parametros.len() != 0):
+                for p in parametros:
+                    cor, valor = p.split('=')
+                    if cor == "VERDE":
+                        self.tempo_verde = int(valor)
+                    if cor == "AMARELO":
+                        self.tempo_amarelo = int(valor)
+                    if cor == "VERMELHO":
+                        self.tempo_vermelho = int(valor)
 
         #Envio de DeviceInfo
         device_info = serjipe_message_pb2.DeviceInfo(
-            device_id = self.poste.id_disp,
-            type = self.poste.type,
-            grpc_endpoint = self.poste.grpc_endpoint,
-            status = self.poste.status,
-            value_name = ["Brilho (%)", "Modo Automático", "Consumo de energia (kWh)"],
-            value = [str(self.poste.brilho), str(self.poste.automatico), f"{self.poste.consumo_medio:.1f}"],
+            device_id = self.disp.id_disp,
+            type = self.disp.type,
+            grpc_endpoint = self.disp.grpc_endpoint,
+            status = self.disp.status,
+            value_name = ["Tempo verde", "Tempo amarelo", "Tempo vermelho"],
+            value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)]
         )
 
         return device_info
 
-def serve(poste):    #Inicia o servidor grpc
+def serve(disp):    #Inicia o servidor grpc
     port = "50051"
     
     #Utiliza um pool de threads para as requisições
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     
     # Registra a implementação do serviço ControleDispositivosService no servidor.
-    serjipe_message_pb2_grpc.add_ControleDispositivosServiceServicer_to_server(ControleDispositivosService(poste), server)
+    serjipe_message_pb2_grpc.add_ControleDispositivosServiceServicer_to_server(ControleDispositivosService(disp), server)
     
     #Configuração da porta de escuta
     server.add_insecure_port("[::]:" + port)
@@ -212,15 +199,15 @@ def serve(poste):    #Inicia o servidor grpc
     return server
 
 if __name__ == "__main__":
-    poste = Poste()
+    disp = Semaforo()
 
     #Inicia thread de descoberta multicast
-    threading.Thread(target=poste.descoberta_multicast, daemon=True).start()
+    threading.Thread(target=disp.descoberta_multicast, daemon=True).start()
     
     #Inicializa o sistema de logging(registro de eventos)
     logging.basicConfig()
 
-    server = serve(poste)
+    server = serve(disp)
 
     #Loop que mantem o programa rodando
     try:
