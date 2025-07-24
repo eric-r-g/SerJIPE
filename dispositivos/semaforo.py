@@ -27,11 +27,11 @@ class Semaforo:
         self.status = "ON"
 
         self.ip = self.obter_ip_local()
-
-        #Escolhe uma porta TCP aleatória
-        self.porta_tcp = random.randint(10000, 20000)
-        self.grpc_endpoint = self.ip + ":50051"
-
+        
+        # Escolhe uma porta para o gRPC aleatória
+        self.porta_grpc = random.randint(50052, 60000)
+        self.grpc_endpoint = f"{self.ip}:{self.porta_grpc}"
+        
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
         self.multicast_port = 5000
@@ -40,7 +40,7 @@ class Semaforo:
         self.gateway_ip = None
         self.porta_resposta_gateway = 0
 
-        print(f"Semaforo {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Semaforo {self.id_disp} iniciado!")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
@@ -164,11 +164,11 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
                 for p in parametros:
                     cor, valor = p.split('=')
                     if cor == "VERDE":
-                        self.tempo_verde = int(valor)
+                        self.disp.tempo_verde = int(valor)
                     if cor == "AMARELO":
-                        self.tempo_amarelo = int(valor)
+                        self.disp.tempo_amarelo = int(valor)
                     if cor == "VERMELHO":
-                        self.tempo_vermelho = int(valor)
+                        self.disp.tempo_vermelho = int(valor)
 
         #Envio de DeviceInfo
         device_info = serjipe_message_pb2.DeviceInfo(
@@ -183,7 +183,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
         return device_info
 
 def serve(disp):    #Inicia o servidor grpc
-    port = "50051"
+    port = str(disp.porta_grpc)
     
     #Utiliza um pool de threads para as requisições
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
