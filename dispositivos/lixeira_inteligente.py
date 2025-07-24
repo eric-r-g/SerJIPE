@@ -40,7 +40,7 @@ class Lixeira:
         self.gateway_ip = None
         self.porta_resposta_gateway = 0
 
-        print(f"Lixeira {self.id_disp} iniciado em {self.ip}")
+        print(f"Lixeira {self.id_disp} iniciada!")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
