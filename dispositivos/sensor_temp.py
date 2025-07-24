@@ -43,7 +43,6 @@ class SensorTemperatura:
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
         #troca a porta UDP pelo dicionário de informações do Broker
-       
         self.broker_info = None  #novo
 
       
@@ -180,10 +179,6 @@ class SensorTemperatura:
     def run(self):  # Inicia as funcionalidades em threads separadas
        
         threading.Thread(target=self.descoberta_multicast, daemon=True).start()
-
-    
-
-
         threading.Thread(target=self.envio_dados, daemon=True).start()
 
         #Loop que mantem o rodando

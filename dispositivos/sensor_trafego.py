@@ -6,6 +6,8 @@ import random
 from datetime import datetime   #Obter data/hora atual
 import uuid     #Gerar id's únicos
 import serjipe_message_pb2  #Módulo gerado pelo Protocol Buffers para as mensagens
+import json
+import pika
 
 class SensorTrafego:
     def __init__(self): #Inicialização do dispositivo
@@ -16,15 +18,11 @@ class SensorTrafego:
 
         #Gera um ID único para o dispositivo
         self.id_disp = f"TRAF-{str(uuid.uuid4())[:8]}"
-
         self.tipo = "sensor_trafego"
-
         self.status = "ON"
-
         self.ip = self.obter_ip_local()
 
-        #Escolhe uma porta TCP aleatória
-        self.porta_tcp = random.randint(10000, 20000)
+        # self.porta_tcp = random.randint(10000, 20000)
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -32,7 +30,7 @@ class SensorTrafego:
 
         #Informações do gateway (preenchidas após descoberta)
         self.gateway_ip = None
-        self.porta_udp_gateway = 0
+        self.broker_info = None
 
         print(f"Sensor {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
 
@@ -53,6 +51,7 @@ class SensorTrafego:
             s.close()
         return ip
     
+
     def descoberta_multicast(self):   #Escuta por pedidos de descoberta do gateway
         while True: #Loop principal para reiniciar automaticamente
             try:
@@ -84,188 +83,101 @@ class SensorTrafego:
                         data, endr = s.recvfrom(1024)
 
                         try:
-                            #Desserializa a mensagem
-                            envelope = serjipe_message_pb2.Envelope()
-                            envelope.ParseFromString(data)
+                            #1. Decodifica a mensagem JSON que o Gateway enviou.
+                            mensagem_gateway = json.loads(data.decode('utf-8'))
 
-                            if envelope.HasField("discover"):
-                                mensagem = serjipe_message_pb2.Discover()
-                                mensagem.CopyFrom(envelope.discover)
-                            else:
-                                #Tratamento
-                                print("erro de comando invalido")
-                            
-                            #Salva as informações
-                            self.gateway_ip = mensagem.ip
-                            self.porta_udp_gateway = mensagem.port_udp_sensor
+                            #2. guarda as informações
+                            self.gateway_ip = mensagem_gateway.get("gateway_ip")
+                            self.broker_info = mensagem_gateway.get("broker_info")
                             print(f"[{self.id_disp}] Gateway encontrado: {self.gateway_ip}")
+                            print(f"[{self.id_disp}] Info do Broker: {self.broker_info}")
 
-                            #Prepara a resposta com informações do dispositivo
-                            device_info = serjipe_message_pb2.DeviceInfo(
-                                device_id = self.id_disp,
-                                type = self.tipo,
-                                ip = self.ip,
-                                port = self.porta_tcp,
-                                data = serjipe_message_pb2.DeviceData(
-                                    device_id = self.id_disp,
-                                    status = self.status,
-                                    value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
-                                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
-                                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                                )
-                            )
-                            #Cria o envelope de envio
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.device_info.CopyFrom(device_info)
-                            envelopeEnvio.erro = 'SUCESSO'
+                            #3.Prepara uma resposta em JSON, usando suas variáveis.
+                            resposta_json = {
+                                "device_id": self.id_disp,
+                                "type": self.tipo,
+                                "ip": self.ip,
+                                "status": self.status
+                            }
                             
+                            #4 Envia a resposta de volta para o Gateway.
+                            porta_resposta_gateway = mensagem_gateway.get("gateway_port")
+                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
+                                response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, porta_resposta_gateway))
+                            print(f"[{self.id_disp}] Registrado no gateway!")
 
                         except Exception as e:
                             print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
-                            envelopeEnvio = serjipe_message_pb2.Envelope()
-                            envelopeEnvio.erro = "FALHA"
-                        finally:
-                            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
-                                response_sock.sendto(envelopeEnvio.SerializeToString(), (self.gateway_ip, mensagem.port_multicast))
-                                
-                            print(f"[{self.id_disp}] Registrado no gateway!")
-                            continue
-                        
-
                     except socket.timeout:
                         #Timeout - continua ouvindo
                         continue
-                    except ConnectionResetError:
-                        print(f"[{self.id_disp}] Erro de conexão resetada. Reiniciando socket...")
-                        break  # Sai do loop secundário para recriar socket
-                    except Exception as e:
-                        print(f"[{self.id_disp}] Desligado")
-                        break
-
             except Exception as e:
-                print(f"[{self.id_disp}] Desligado")
-                break
+                print(f"[{self.id_disp}] Erro na thread de descoberta: {e}. Tentando novamente em 5s.")
+                time.sleep(5)
+        if s:
+            s.close()
 
-            finally:
-                # Fecha o socket antes de recriar
-                try:
-                    if 's' in locals():
-                        s.close()
-                except:
-                    pass
-            
-            # Espera antes de recriar o socket
+    # estou aqui
+    def envio_dados(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
+
+        #Primeiro, espera a thread de descoberta preencher self.broker_info.
+        print(f"[{self.id_disp}] Thread de envio aguardando informações do broker...")
+        while not self.broker_info:
             time.sleep(1)
 
-    def servidor_comando_tcp(self): #Servidor para receber comandos do gateway
-        #Socket TCP
-        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print(f"[{self.id_disp}] Informações do broker obtidas. Iniciando publicação de dados...")
+        
+        try:
+            #Conecta ao RabbitMQ
+            credentials = pika.PlainCredentials('guest', 'guest')
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=self.broker_info['host'], credentials=credentials))
+            channel = connection.channel()
+            queue_name = self.broker_info['queue'][0]
+            channel.queue_declare(queue=queue_name, durable=True)
 
-        #Associa o socket ao IP e porta TCP do dispositivo
-        server.bind((self.ip, self.porta_tcp))
 
-        # Habilita o socket para aceitar conexões
-        server.listen()
+            while True:
+                if self.status == "ON":
+                    hora = datetime.now().hour
+                    if 6 <= hora < 18:
+                        mudanca_frota = random.randint(-10, 20)
+                    else:
+                        mudanca_frota = random.randint(-20, 10)
 
-        while True:
-            try:
-                #Aceita e recebe os dados da conexão
-                conn, endr = server.accept()
-                data = conn.recv(1024)  #Até 1024 bytes
+                    self.nivel_congestionamento += mudanca_frota/self.contagem_veiculos
+                    self.contagem_veiculos += mudanca_frota
+                    self.contagem_veiculos = max(20, min(self.contagem_veiculos, 500))
 
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.ParseFromString(data)
+                    mensagem_dados = {
+                        "device_id": self.id_disp,
+                        "status": self.status,
+                        "type": "sensor_trafego",
+                        "value_name": ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
+                        "value": [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
+                        "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                    }
 
-                envelopeEnvio = serjipe_message_pb2.Envelope()
-                envelopeEnvio.erro = 'SUCESSO'
-
-                if envelope.HasField("command"):
-                    command = envelope.command
-                else:
-                    #Tratamento
-                    raise Exception("erro de comando invalido")
-
-                #Verifica se é para esse dispositivo
-                if command.device_id == self.id_disp:
-                    #Processa a solicitação
-                    if command.action == "DESLIGAR":
-                        self.status = "OFF"
-                        print(f"[{self.id_disp}] Desligado")
-                    elif command.action == "LIGAR":
-                        self.status = "ON"
-                        print(f"[{self.id_disp}] Ligado")
-                    elif command.action == "SETAR_INTERVALO":
-                        try:
-                            #Tenta converter o parâmetro para inteiro
-                            novo_intervalo = int(command.parameter)
-                            #Atualiza o intervalo de envio de dados
-                            self.intervalo_envio = novo_intervalo
-                            print(f"[{self.id_disp}] Intervalo alterado para {novo_intervalo}s")
-                        except ValueError:
-                            #Trata erro se o parâmetro não for número
-                            envelopeEnvio.erro = "FALHA"
-                            print("Parâmetro inválido para intervalo")
-                    
-                    #Confirmação de recebimento (envio de DeviceData)
-                    device_data = serjipe_message_pb2.DeviceData(
-                        device_id = self.id_disp,
-                        status = self.status,
-                        value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
-                        value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
-                        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+                    # Envia os dados para a fila do RabbitMQ.
+                    channel.basic_publish(
+                        exchange='',
+                        routing_key=queue_name,
+                        body=json.dumps(mensagem_dados)
                     )
 
-                    envelopeEnvio.device_data.CopyFrom(device_data)
-                    
-                    conn.send(envelopeEnvio.SerializeToString())
+                time.sleep(self.intervalo_envio)
 
-            except Exception as e:
-                print(f"Erro no servidor TCP: {str(e)}")
+        except pika.exceptions.AMQPConnectionError as e:
+            print(f"[{self.id_disp}] CRÍTICO: Perda de conexão com o RabbitMQ. {e}")
+        finally:
+            if 'connection' in locals() and connection.is_open:
+                connection.close()
+            print(f"[{self.id_disp}] Thread de envio encerrada.")
 
-            finally:
-                if ('conn' in locals()):
-                    #Fecha a conexão
-                    conn.close()
 
-    def envio_dados(self):    #Enviar dados periódicos do sensor para o gateway -via UDP-
-        while True:
-            if(self.gateway_ip and self.status == "ON"):
-                hora = datetime.now().hour
-                if 6 <= hora < 18:
-                    mudanca_frota = random.randint(-10, 20)
-                else:
-                    mudanca_frota = random.randint(-20, 10)
-                    
-                self.nivel_congestionamento += mudanca_frota/self.contagem_veiculos
-                self.contagem_veiculos += mudanca_frota
-                self.contagem_veiculos = max(20, min(self.contagem_veiculos, 500))
-
-                #Cria a mensagem de dados do sensor
-                device_data = serjipe_message_pb2.DeviceData(
-                    device_id = self.id_disp,
-                    status = self.status,
-                    value_name = ["Contagem de veículos (por km²)", "Nível de congestionamento (%)", "Intervalo de envio (segundos)"],
-                    value = [str(self.contagem_veiculos), str(self.nivel_congestionamento) ,str(self.intervalo_envio)],
-                    timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
-                )
-
-                #Socket UDP temporário
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-
-                envelope = serjipe_message_pb2.Envelope()
-                envelope.device_data.CopyFrom(device_data)
-
-                #Envia os dados para o gateway
-                s.sendto(envelope.SerializeToString(), (self.gateway_ip, self.porta_udp_gateway))
-
-            time.sleep(self.intervalo_envio)
 
     def run(self): #Inicia as funcionalidades em threads separadas
         #Escuta por pedidos de descoberta multicast
         threading.Thread(target=self.descoberta_multicast, daemon=True).start()
-
-        #Servidor TCP para comandos
-        threading.Thread(target=self.servidor_comando_tcp, daemon=True).start()
 
         #Envio de dados
         threading.Thread(target=self.envio_dados, daemon=True).start()
