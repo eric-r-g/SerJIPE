@@ -64,6 +64,7 @@ class SensorTemperatura:
         return ip
 
     def descoberta_multicast(self):  # Escuta por pedidos de descoberta do gateway
+        s = None
         while True:  # Loop principal para reiniciar automaticamente
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -106,8 +107,6 @@ class SensorTemperatura:
                                 response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, porta_resposta_gateway))
                             
                             print(f"[{self.id_disp}] Registrado no gateway!")
-                            s.close() # Fecha o socket de descoberta
-                            return  # Termina a função (e a thread)
 
                         except Exception as e:
                             print(f"[{self.id_disp}] Erro ao processar mensagem de descoberta: {str(e)}")
@@ -115,10 +114,11 @@ class SensorTemperatura:
 
                     except socket.timeout:
                         continue # Volta a esperar por uma mensagem
-
             except Exception as e:
                 print(f"[{self.id_disp}] Erro na thread de descoberta: {e}. Tentando novamente em 5s.")
                 time.sleep(5)
+        if s:
+            s.close()
 
 
 
