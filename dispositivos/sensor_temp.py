@@ -101,7 +101,7 @@ class SensorTemperatura:
                             
                             #4 Envia a resposta de volta para o Gateway.
                             
-                            porta_resposta_gateway = 5008
+                            porta_resposta_gateway = mensagem_gateway.get("gateway_port")
                             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as response_sock:
                                 response_sock.sendto(json.dumps(resposta_json).encode('utf-8'), (self.gateway_ip, porta_resposta_gateway))
                             
@@ -155,6 +155,7 @@ class SensorTemperatura:
                     mensagem_dados = {
                         "device_id": self.id_disp,
                         "status": self.status,
+                        "type": "sensor_temperatura",
                         "value_name": ["Temperatura atual (°C)", "Intervalo de envio (segundos)"],
                         "value": [f"{temperatura:.1f}", str(self.intervalo_envio)],
                         "timestamp": datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
