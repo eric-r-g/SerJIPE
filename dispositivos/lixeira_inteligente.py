@@ -22,7 +22,7 @@ class Lixeira:
         #Gera um ID único para o dispositivo
         self.id_disp = f"LIX-{str(uuid.uuid4())[:8]}"
 
-        self.tipo = "lixeira_inteligente"
+        self.type = "lixeira_inteligente"
 
         self.status = "ON"
 
