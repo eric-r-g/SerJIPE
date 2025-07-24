@@ -32,7 +32,7 @@ class SensorTrafego:
         self.gateway_ip = None
         self.broker_info = None
 
-        print(f"Sensor {self.id_disp} iniciado em {self.ip}:{self.porta_tcp}")
+        print(f"Sensor {self.id_disp} iniciado em {self.ip}")
 
     def obter_ip_local(self): #Obtém o endereço local da máquina
         #Cria um socket temporário UDP
