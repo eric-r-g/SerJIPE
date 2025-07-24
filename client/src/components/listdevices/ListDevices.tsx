@@ -9,6 +9,30 @@ interface ListDevicesProps{
     updateErrorMsg: (newErrorMsg: string) => void;
 }
 
+function GetDeviceValues(props: {device: DeviceInfo}){
+    if(props.device.value == undefined || props.device.value_name == undefined)
+        return(
+            <div>
+                <p>Nenhum atributo encontrado</p>
+            </div>
+        )
+    
+    return(
+        <div>
+            {
+                props.device.value_name.map((valueName, index) =>{
+                    return(
+                        <p id={`valueData${props.device.device_id}-${index}`}>
+                            {valueName}: {props.device.value[index]}
+                        </p>
+                    )
+                })
+            }
+        </div>
+
+    )
+}
+
 function ListDevices(props: ListDevicesProps){
     const [devicesList, setDevicesList] = useState(getDevicesList());
 
@@ -34,20 +58,10 @@ function ListDevices(props: ListDevicesProps){
                                 </div>
                             </div>
                             <div><h3>Ultima leitura</h3>
-                                <div>
-                                    {
-                                        device.value_name.map((valueName, index) =>{
-                                            return(
-                                                <p id={`valueData${device.device_id}-${index}`}>
-                                                    {valueName}: {device.value[index]}
-                                                </p>
-                                            )
-                                        })
-                                    }
-                                </div>
+                                <GetDeviceValues device={device}/>
                             </div>
                             <div><h3>Enviar comando</h3>
-                                <SendCommand /*device={device} updateDevice={props.updateDevice} updateErrorMsg={props.updateErrorMsg}*//>
+                                <SendCommand device={device} updateDevice={props.updateDevice} updateErrorMsg={props.updateErrorMsg}/>
                             </div>
                         </div>
                     </div>

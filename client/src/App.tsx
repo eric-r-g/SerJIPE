@@ -57,6 +57,8 @@ function App() {
     let index = newDevices.findIndex((deviceTofind) =>{ return deviceTofind.device_id == deviceInfo.device_id});
     newDevices[index] = deviceInfo;
 
+    console.log(deviceInfo);
+
     setDevices(newDevices);
   }
 

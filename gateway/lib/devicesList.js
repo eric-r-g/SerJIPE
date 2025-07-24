@@ -9,9 +9,19 @@ export class DeviceList{
     addDevice(device){
         this.list.set(device.device_id, device);
     }
+    
+    updateDeviceInfo(oldDeviceId, newDevice){
+        let oldDevice = this.getDevice(oldDeviceId);
+        if(!oldDevice) return;
+
+        oldDevice.type = newDevice.type;
+        oldDevice.status = newDevice.status;
+
+        this.list.set(oldDeviceId, oldDevice);
+    }
 
     removeDevice(device){
-        this.list.delete(device);
+        this.list.delete(device.device_id);
     }
 
     clearList(){
