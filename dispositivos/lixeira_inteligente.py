@@ -30,7 +30,10 @@ class Lixeira:
 
         #Escolhe uma porta TCP aleatória
         self.porta_tcp = random.randint(10000, 20000)
-        self.grpc_endpoint = self.ip + ":50051"
+        
+        # Escolhe uma porta para o gRPC aleatória
+        self.porta_grpc = random.randint(50052, 60000)
+        self.grpc_endpoint = f"{self.ip}:{self.porta_grpc}"
 
         #Configurações de multicast
         self.grupo_multicast = '239.1.2.3'
@@ -182,7 +185,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
         return device_info
 
 def serve(disp):    #Inicia o servidor grpc
-    port = "50051"
+    port = str(disp.porta_grpc)
     
     #Utiliza um pool de threads para as requisições
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
