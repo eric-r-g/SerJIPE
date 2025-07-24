@@ -22,7 +22,7 @@ class Semaforo:
         #Gera um ID único para o dispositivo
         self.id_disp = f"SEM-{str(uuid.uuid4())[:8]}"
 
-        self.tipo = "semaforo"
+        self.type = "semaforo"
 
         self.status = "ON"
 
