@@ -177,7 +177,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
             grpc_endpoint = self.disp.grpc_endpoint,
             status = self.disp.status,
             value_name = ["Tempo verde", "Tempo amarelo", "Tempo vermelho"],
-            value = [str(self.tempo_verde), str(self.tempo_amarelo), str(self.tempo_vermelho)]
+            value = [str(self.disp.tempo_verde), str(self.disp.tempo_amarelo), str(self.disp.tempo_vermelho)]
         )
 
         return device_info
