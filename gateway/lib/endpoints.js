@@ -3,12 +3,6 @@ import { handleComando } from "./handlerComando.js";
 export function setEndpoints(app){
     app.server.get('/api/dispositivos', (req, res) =>{
         try{
-            let command = {
-                device_id: "GATEWAY",
-                action: "LISTAR",
-                parameter: ""
-            }
-
             res.send(JSON.stringify(
                 {
                     devices: app.devicesList.getDevices()

@@ -6,7 +6,7 @@ import { listenToMulticast, sendDataMulticast } from './socket_functions.js';
 import { getLocalIp, MULTICAST_GROUP, PORT_MULTICAST, PORT_MULTICAST_RESPOSTA, sensoresType } from './config.js';
 import { SensorReceiver } from './SensorReceiver.js';
 
-function createConnection(app){
+function createConnection(){
     return new Promise((resolve, reject) =>{
         amqp.connect('amqp://localhost')
         .then((connection) =>{

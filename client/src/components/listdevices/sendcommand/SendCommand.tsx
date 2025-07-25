@@ -26,15 +26,15 @@ function SendCommand(props: SendCommandProps){
                 value: response.data.value
             } as DeviceInfo;
 
-            /*if(props.device.type == 'sensor_trafego'){
-                let indice_formatar = deviceData.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
-                let formatar = deviceData.valueList[indice_formatar];
-                deviceData.valueList[indice_formatar] = Number(formatar).toFixed(1);
+            if(props.device.type == 'sensor_trafego'){
+                let indice_formatar = props.device.value_name.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
+                let formatar = props.device.value[indice_formatar];
+                props.device.value[indice_formatar] = Number(formatar).toFixed(1);
             }else if(props.device.type == 'poste'){
-                let indice_formatar = deviceData.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
-                let formatar = deviceData.valueList[indice_formatar];
-                deviceData.valueList[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
-            }*/
+                let indice_formatar = props.device.value_name.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
+                let formatar = props.device.value[indice_formatar];
+                props.device.value[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
+            }
 
             props.updateDevice(deviceInfo);
         })

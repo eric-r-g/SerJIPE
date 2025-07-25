@@ -27,17 +27,16 @@ function App() {
         let list = (response.data.devices) as Array<DeviceInfo>;
 
         // Formatar e organizar a lista antes de atualizar
-        //list.sort((a, b) => a.port - b.port);
         list = list.map((dispositivo) =>{
-            /*if(dispositivo.type == 'sensor_trafego'){
-                let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
-                let formatar = dispositivo.data.valueList[indice_formatar];
-                dispositivo.data.valueList[indice_formatar] = Number(formatar).toFixed(1);
+            if(dispositivo.type == 'sensor_trafego'){
+                let indice_formatar = dispositivo.value_name.findIndex((str) =>{ return str.toLowerCase().includes('congestionamento') });
+                let formatar = dispositivo.value[indice_formatar];
+                dispositivo.value[indice_formatar] = Number(formatar).toFixed(1);
             }else if(dispositivo.type == 'poste'){
-                let indice_formatar = dispositivo.data.valueNameList.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
-                let formatar = dispositivo.data.valueList[indice_formatar];
-                dispositivo.data.valueList[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
-            }*/
+                let indice_formatar = dispositivo.value_name.findIndex((str) =>{ return str.toLowerCase().includes('modo') });
+                let formatar = dispositivo.value[indice_formatar];
+                dispositivo.value[indice_formatar] = formatar == '1'?'Ligado':'Desligado';
+            }
 
             return dispositivo;
         })
