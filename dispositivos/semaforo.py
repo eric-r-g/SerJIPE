@@ -160,7 +160,7 @@ class ControleDispositivosService(serjipe_message_pb2_grpc.ControleDispositivosS
             print(f"[{self.disp.id_disp}] Ligado")
         elif acao == "AJUSTAR_TEMPO":
             parametros = parametro.split(' ')
-            if (parametros.len() != 0):
+            if (len(parametros) != 0):
                 for p in parametros:
                     cor, valor = p.split('=')
                     if cor == "VERDE":
