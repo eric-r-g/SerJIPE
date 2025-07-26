@@ -12,37 +12,36 @@ Trabalho de distribuição de processos e dados, voltado para a criação de um 
 
 ## Sobre
 
-Este projeto é um sistema distribuído para gerenciamento de sensores em uma rede local, utilizando multicast UDP para descoberta de dispositivos, comunicação via TCP e mensagens serializadas com Protocol Buffers.
+Este projeto é um sistema distribuído para gerenciamento de sensores em uma rede local, utilizando multicast UDP para descoberta de dispositivos, com comunicação via grpc e RabbitMQ, além de uma arquitetura webservices para comunicação entre cliente e gateway.
 
 ## Funcionalidades
 
 - Descoberta de dispositivos via multicast
-- Recebimento de dados de sensores via UDP
-- Comunicação cliente-servidor via TCP
-- Serialização de mensagens com Protocol Buffers
+- Recebimento de dados de sensores via RabbitMQ
+- Comunicação cliente-gateway via WebServices
 - Armazenamento e exibição dos dispositivos conectados
 
 ## Requisitos
 
 - Python 3.10+
-- `protobuf`
+- `protobuf` para o grpc
 - NodeJS
-- Sistemas compatíveis com sockets (Linux recomendado)
+- RabbitMQ
 
 ## Instalação e uso
 
 ### Gateway
 
-Entre na pasta /gateway, instale a biblioteca para o uso do Protocol Buffers no python:
+Entre na pasta /gateway, instale os pacotes do nodejs:
 
 ```bash
-pip install protobuf
+npm install
 ```
 
-Agora rode o gateway com:
+Agora rode o servidor com:
 
 ```bash
-python main.py
+npm run start
 ```
 
 ### Dispositivos
@@ -51,6 +50,18 @@ Entre na pasta /dispositivos, instale a biblioteca para o uso do Protocol Buffer
 
 ```bash
 pip install protobuf
+```
+
+Instale a biblioteca para o uso do Protocol JSON no python:
+
+```bash
+pip install pika
+```
+
+Instale a biblioteca para o uso do Protocol GRPC no python:
+
+```bash
+pip install grpc
 ```
 
 Agora rode um dos dispositivos com:
@@ -63,19 +74,7 @@ Opcionalmente, os dispositivos podem ser iniciados em outra máquina da rede int
 
 ### Cliente
 
-Entre na pasta /cliente/backend, instale os pacotes do nodejs:
-
-```bash
-npm install
-```
-
-Agora rode o servidor com:
-
-```bash
-npm run start
-```
-
-A interface está em <http://localhost:8003> por padrão.
+Depois de iniciar o servidor do gateway, o cliente estará sendo hosteado no endereço que o servidor informar: <http://localhost:8003>
 
 ## Licença
 
